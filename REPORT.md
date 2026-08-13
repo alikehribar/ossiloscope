@@ -181,8 +181,10 @@ anything further being written to it.
 
 ![Two channel RC filter schematic](schematic.png)
 
-The schematic above is the whole analog part of the project. There are two
-channels, one per axis, and they are identical and independent of each other.
+**Figure 1.** The analog part of the project.
+
+Figure 1 is the whole analog part of the project. There are two channels, one per
+axis, and they are identical and independent of each other.
 
 Each channel is built from three elements. A pulse source, V1 for the X axis and
 V2 for the Y axis, stands in for the microcontroller pin; on the board these are
@@ -236,8 +238,7 @@ which is what makes the next stage possible.
 The first working version wrote duty values from an ordinary Python loop to two
 `pwmio.PWMOut` objects. It worked, but the CPU could only get through the 231
 point path 20 to 40 times per second, and the picture visibly shook. Fifty passes
-per second is taken as the working threshold from here on, and the point budget
-in sections 6 and 7 is derived from it.
+per second is taken as the working threshold for a steady picture.
 
 The fix is to take the CPU out of the drawing loop entirely, using the DMA
 described in section 2.5. CircuitPython exposes no direct DMA interface. It does
@@ -261,13 +262,38 @@ loop does no work; it only stops `code.py` from reaching its end, because
 CircuitPython switches the outputs off when the program exits. From that point on
 the CPU is idle.
 
-## 6. Results
+## 5. Results
 
-### 6.2 Measured values
+![The drawing on the oscilloscope](scope_output.jpg)
+
+**Figure 2.** Output of `cat_xy.py` on an Owon SmartDS5032E in XY mode. Both
+channels at 1 V per division, the instrument acquiring at 125 kS/s with its time
+base at 4.0 ms per division.
+
+Figure 2 is what the circuit produces. The path closes on itself, the strokes are
+continuous, and the connecting lines between the head, the eyes and the nose are
+visible as part of the drawing, which is the consequence of having no way to
+blank the beam.
+
+![The same drawing acquired at 125 S/s](scope_undersampled.jpg)
+
+**Figure 3.** The same running board with the time base at 4 s per division,
+which drops the acquisition rate to 125 S/s. Vertical scale is 500 mV per
+division here, so the figure covers more of the screen.
+
+Figure 3 shows the same board doing the same thing, changed only by the
+instrument's own settings. The board still sends 32000 points per second while
+the instrument records 125 pairs per second, so it keeps roughly one pair in
+every (32000 / 125) = 256 and the ones it keeps come from many different passes
+rather than from a single run along the path. The outline breaks into
+unconnected dots. This is the second condition stated in section 2.1, and it is a
+property of the measurement rather than of the drawing.
 
 Voltages were measured by the Pico reading its own outputs through GP26 and GP27.
 Values marked derived are computed from the measured ones rather than observed
 directly.
+
+**Table 1.** Measured, derived and configured values.
 
 | Quantity | Value | Source |
 | --- | --- | --- |
@@ -278,50 +304,9 @@ directly.
 | Settling per point | 95.1 % | derived |
 | Path length | 231 points | set |
 | Frame rate | 138.5 Hz | measured |
-| Point budget at 50 Hz | 640 points | derived |
 | X output, mean / min / max | 1.696 / 0.426 / 2.850 V | measured |
 | Y output, mean / min / max | 1.725 / 0.562 / 3.226 V | measured |
 | ADC rate, list comprehension benchmark | 52206 pairs/s | measured |
-| ADC rate, streaming firmware in practice | 43900 pairs/s | measured |
-| USB streaming throughput | about 144 kB/s, 18 frames/s | measured |
 
 The result is a 231 point path redrawn 138.5 times per second, against the 20 to
 40 Hz of the Python loop described in section 4.2 on the same hardware.
-
-## 7. Limits
-
-The point budget is set by the flicker threshold rather than by memory. The board
-has room for far longer paths than are used here. What limits them is how often
-the path has to be completed: at 32 kHz, against the 50 passes per second of
-section 4.2, a path must stay under (32000 / 50) = 640 points.
-
-Raising the sample rate means changing the hardware. More points per second
-leaves less time per point, and the filter has to settle faster to keep up. With
-2.2 nF in place of 4.7 nF the time constant halves and the circuit supports
-64 kHz, doubling the budget to 1280 points at 50 Hz. The trade described in
-section 2.4 runs in the other direction too, since the smaller capacitor also
-lets more of the PWM carrier reach the output as ripple.
-
-The outline drawings traced from a font run at 512 kHz, and that mode works for a
-reason that does not generalise. At that rate each point lasts 1.95 us, only
-0.19 tau, so the output settles to 17.2 % of each coordinate and never actually
-arrives at any of them. It succeeds only because 7200 points sit very close
-together along the path, so the filter is following a slowly moving target
-instead of chasing steps. The same rate applied to a sparse path would smear it.
-
-The path is resampled to evenly spaced points before it is sent to the board.
-Because the beam spends the same time on every point, this stops a long stroke
-from appearing dimmer than a short one within a single drawing. The equalisation
-holds inside one path only; nothing equalises across drawings, because each has
-its own ratio of path length to point count.
-
-The live viewer on the Mac, `livescope.py`, shears the picture slightly while
-displaying the ADC readings from the board. It reads X and Y sequentially rather
-than at the same instant, about 9.6 us apart, so each reported pair belongs to
-two moments roughly 0.3 of a point apart. The result is a small skew present in
-the live window and absent from the oscilloscope screen.
-
-`even_spaced_path()`, which performs that resampling, exists as a copy in five
-firmware files. Firmware files have to run standalone on the board with no import
-path back to a shared module, so the duplication is deliberate. It still means
-that any change to the function has to be made five times.

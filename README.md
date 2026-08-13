@@ -1,10 +1,13 @@
 # Oscilloscope XY vector drawing on Raspberry Pi Pico 2
 
-Draws a picture on an analog oscilloscope in XY mode using a Raspberry Pi Pico 2
+Draws a picture on an oscilloscope in XY mode using a Raspberry Pi Pico 2
 (RP2350) running CircuitPython. Two PWM pins plus RC filters act as a two channel
 DAC; the point stream is pushed by DMA, so the CPU is not involved in drawing.
 
-Verified on Adafruit CircuitPython 10.2.1, board id `raspberry_pi_pico2`.
+Verified on Adafruit CircuitPython 10.2.1, board id `raspberry_pi_pico2`, with an
+Owon SmartDS5032E.
+
+`REPORT.md` is the full write up: theory, circuit, method and results.
 
 ## Circuit
 
@@ -30,12 +33,14 @@ Verified on Adafruit CircuitPython 10.2.1, board id `raspberry_pi_pico2`.
    GND (pin 38 or AGND pin 33)  ----------------------  scope ground clips
 ```
 
-The scope and ADC taps connect to the node between the resistor and the capacitor,
-never to the GPIO side of the resistor.
+The scope and ADC taps connect to the node between the resistor and the
+capacitor, never to the GPIO side of the resistor.
 
 Scope settings: XY mode, both channels DC coupled, 1 Mohm input impedance,
-roughly 500 mV/div. The ADC taps are optional and only needed for the self test
-and the live viewer.
+roughly 500 mV/div to 1 V/div. The time base matters as much as the vertical
+scale, because the instrument has to acquire fast enough to resolve consecutive
+points; see `scope_undersampled.jpg` for what happens when it does not. The ADC
+taps are optional and only used by `text_outline_livescope_fw.py`.
 
 ## Measured values
 
@@ -57,41 +62,33 @@ and the live viewer.
 
 Voltages were measured by the Pico reading its own outputs through GP26 and GP27.
 
+These figures come from a 231 point path at 32 kHz. `cat_xy.py` as it stands
+resamples to 400 points, which gives (32000 / 400) = 80 Hz at the same sample
+rate.
+
 ## Files
 
-| File | Runs on | Purpose |
-| --- | --- | --- |
-| `cat_xy.py` | Pico | Main firmware. Builds the path, plays it through DMA. Copy to `CIRCUITPY` as `code.py`. |
-| `cat_xy_pwm_legacy.py` | Pico | Earlier version driving PWM from a Python loop. Kept for comparison; flickers at 20-40 Hz. |
-| `selftest_adc.py` | Pico | Draws and prints 3000 ADC pairs as text. Used to verify wiring. |
-| `livescope_fw.py` | Pico | Draws and streams ADC bursts as binary over USB for the live viewer. |
-| `livescope.py` | Mac | Live matplotlib window fed by `livescope_fw.py`. `--headless` saves `live_capture.npy` instead. |
-| `scope_sim.py` | Mac | Renders what the scope will show, including RC filter blur. Writes `sim_ideal.png` and `sim_filtered.png`. |
+| File | Sample rate | Output points | Purpose |
+| --- | --- | --- | --- |
+| `cat_xy.py` | 32000 | 400 | Cat drawn from arcs and lines built in code. |
+| `cat_outline.py` | 512000 | 7200 | Cat traced as a closed outline from a point table. |
+| `text_outline.py` | 512000 | 7200 | Word traced as outlines from a font. |
+| `text_outline_livescope_fw.py` | 512000 | 7200 | Same as `text_outline.py`, plus it samples GP26/GP27 and streams 2048 pair bursts over USB CDC behind the marker `\xab\xcd\xef\x01`. |
+
+All four run on the Pico. The Mac side tools that generated the point tables and
+received the USB stream are not in this repository.
 
 ## Usage
 
-Normal drawing:
+Copy any firmware file to the board as `code.py`:
 
 ```
 cp cat_xy.py /Volumes/CIRCUITPY/code.py
 ```
 
-Preview a shape before flashing:
-
-```
-python3 scope_sim.py
-```
-
-Live viewer, requires the GP26/GP27 taps:
-
-```
-cp livescope_fw.py /Volumes/CIRCUITPY/code.py
-python3 livescope.py
-```
-
-`livescope.py` finds the serial port itself by globbing `/dev/cu.usbmodem*`.
-macOS derives that name from the USB address the board enumerates on, so it
-changes when the board is replugged or moved to another socket.
+The board starts drawing as soon as it restarts, and keeps drawing without a
+computer attached. USB is only needed for power, or for the stream produced by
+`text_outline_livescope_fw.py`.
 
 ## How the drawing works
 
@@ -99,21 +96,36 @@ An oscilloscope in XY mode positions a single dot from two voltages. There is no
 frame buffer, so a picture must be a single ordered list of points that the dot
 visits in sequence. The dot cannot be blanked without a Z axis input, so moves
 between disconnected shapes are drawn as visible lines. Paths are therefore built
-as one closed circuit, and detours such as the whiskers are retraced along the same
-line so the return stroke overlaps the outgoing one.
+as one closed circuit, and detours such as the whiskers are retraced along the
+same line so the return stroke overlaps the outgoing one.
 
-`audiopwmio.PWMAudioOut` is used as a DMA engine rather than for audio. Left channel
-is X, right channel is Y, and `RawSample` holds the interleaved uint16 duty values.
-CircuitPython exposes no direct DMA API; this is the available route to it.
+`audiopwmio.PWMAudioOut` is used as a DMA engine rather than for audio. Left
+channel is X, right channel is Y, and `RawSample` holds the interleaved uint16
+duty values. CircuitPython exposes no direct DMA API; this is the available route
+to it.
+
+Each path is resampled to evenly spaced points by `even_spaced_path()` before it
+is played. The beam spends the same time on every point, so equal spacing keeps a
+long stroke from appearing dimmer than a short one.
 
 ## Limits
 
-- Point budget is set by the flicker threshold, not by memory. At 32 kHz, 640 points
-  is the maximum that stays above 50 Hz.
-- Raising the sample rate requires a smaller capacitor. At 2.2 nF the filter supports
-  64 kHz, which doubles the point budget to 1280.
-- Point spacing is not uniform, so line brightness varies along the path. Resampling
-  by arc length would correct this.
-- The live viewer samples X and Y sequentially, about 9.6 us apart, which shears each
-  reading by roughly 0.3 of a point.
-# ossiloscope
+- Point budget is set by the flicker threshold, not by memory. At 32 kHz, 640
+  points is the maximum that stays above 50 Hz.
+- Raising the sample rate requires a smaller capacitor. At 2.2 nF the filter
+  supports 64 kHz, which doubles the point budget to 1280.
+- At 512 kHz each point lasts 0.19 tau and the filter settles only 17.2 % of the
+  way to it. That mode works because 7200 points sit close together along the
+  path, not because the output reaches each coordinate.
+- Resampling equalises brightness within one path but not between drawings, since
+  each has its own ratio of path length to point count.
+- `even_spaced_path()` is duplicated in every firmware file, because each has to
+  run standalone on the board with no shared module to import.
+
+## Images
+
+| File | Shows |
+| --- | --- |
+| `schematic.png` | The two channel RC filter. |
+| `scope_output.jpg` | `cat_xy.py` on the instrument at 125 kS/s. |
+| `scope_undersampled.jpg` | The same board at 125 S/s, where the instrument keeps roughly one pair in 256 and the outline breaks into dots. |
