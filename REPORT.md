@@ -257,10 +257,16 @@ second the beam visits. `loop=True` replays the buffer forever without further
 instructions, so once `play()` returns, the drawing continues with no CPU
 involvement.
 
-This is why every firmware file ends with an empty `while True: pass` loop. The
-loop does no work; it only stops `code.py` from reaching its end, because
+This is why the drawing only firmware ends with an empty `while True: pass` loop.
+The loop does no work; it only stops `code.py` from reaching its end, because
 CircuitPython switches the outputs off when the program exits. From that point on
 the CPU is idle.
+
+The files whose names end in `_livescope_fw.py` end in a loop that does do work,
+reading the ADC taps and writing bursts to USB. That loop is the measurement
+branch of section 4.1 and not part of drawing. The picture would be identical
+without it, which is the point: the CPU is busy with something unrelated to the
+drawing while the drawing continues.
 
 ## 5. Results
 
@@ -293,7 +299,14 @@ Voltages were measured by the Pico reading its own outputs through GP26 and GP27
 Values marked derived are computed from the measured ones rather than observed
 directly.
 
-**Table 1.** Measured, derived and configured values.
+Table 1 does not describe the run photographed in Figure 2. Measuring requires
+the ADC branch, so the numbers come from `livescope_fw.py`, which draws the same
+cat built from arcs but leaves the path at its natural 231 points instead of
+resampling. `cat_xy.py`, the file in Figure 2, resamples that outline to 400
+points and therefore redraws at (32000 / 400) = 80 Hz rather than 138.5 Hz. The
+circuit, the sample rate and the voltages are the same either way.
+
+**Table 1.** Measured, derived and configured values for `livescope_fw.py`.
 
 | Quantity | Value | Source |
 | --- | --- | --- |
@@ -302,14 +315,19 @@ directly.
 | Sample rate | 32000 points/s | set |
 | Time per point | 31.25 us = 3.02 tau | derived |
 | Settling per point | 95.1 % | derived |
-| Path length | 231 points | set |
-| Frame rate | 138.5 Hz | measured |
+| Path length | 231 points | from the path builder |
+| Frame rate | 138.5 Hz | derived |
 | X output, mean / min / max | 1.696 / 0.426 / 2.850 V | measured |
 | Y output, mean / min / max | 1.725 / 0.562 / 3.226 V | measured |
 | ADC rate, list comprehension benchmark | 52206 pairs/s | measured |
 
-The result is a 231 point path redrawn 138.5 times per second, against the 20 to
-40 Hz of the Python loop described in section 4.2 on the same hardware.
+The frame rate is listed as derived because it is not read off an instrument. It
+follows from the two rows above it, as (32000 / 231) = 138.5 Hz, and holds
+because the DMA visits every point in the buffer at the configured rate whatever
+the CPU is doing. The 20 to 40 Hz of the Python loop in section 4.2 was measured,
+because there the rate depended on how fast the code ran and could not be
+predicted from the buffer alone. That contrast is the result: the same path on
+the same hardware, made steady by moving it off the CPU.
 
 ## 6. Predicting and measuring the outline drawing
 

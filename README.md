@@ -111,8 +111,11 @@ Host tools, run on the Mac:
 | --- | --- |
 | `livescope.py` | Live viewer for the USB stream. `--headless` saves `live_capture.npy` instead of opening a window. |
 | `outline_compare.py` | Measures a saved capture against the outline `cat_outline.py` intended to draw, and writes `outline_compare.png`. |
-| `textgen.py` | Turns a word into the outline point tables, using PIL and potrace. |
 | `scope_sim.py` | Simulates the RC filter to preview a path before flashing it. |
+
+The point tables inside the outline firmware were generated from a font by a
+tool that is no longer kept here. The tables are complete as they stand, so the
+firmware runs without it; a new word would need a new generator.
 
 ## Usage
 
@@ -123,8 +126,16 @@ cp cat_xy.py /Volumes/CIRCUITPY/code.py
 ```
 
 The board starts drawing as soon as it restarts, and keeps drawing without a
-computer attached. USB is only needed for power, or for the stream produced by
-`text_outline_livescope_fw.py`.
+computer attached. USB is only needed for power, or to receive the stream from
+one of the four `_livescope_fw.py` files.
+
+The host tools need numpy, matplotlib and Pillow.
+
+To watch the output live, flash a streaming firmware and run:
+
+```
+python3 livescope.py
+```
 
 ## How the drawing works
 
@@ -140,19 +151,29 @@ channel is X, right channel is Y, and `RawSample` holds the interleaved uint16
 duty values. CircuitPython exposes no direct DMA API; this is the available route
 to it.
 
-Each path is resampled to evenly spaced points by `even_spaced_path()` before it
-is played. The beam spends the same time on every point, so equal spacing keeps a
-long stroke from appearing dimmer than a short one.
+Most paths are resampled to evenly spaced points by `even_spaced_path()` before
+they are played. The beam spends the same time on every point, so equal spacing
+keeps a long stroke from appearing dimmer than a short one.
+
+The older arc built cat in `livescope_fw.py`, `selftest_adc.py` and
+`cat_xy_pwm_legacy.py` does not do this. Its 231 points come straight from the
+arc and line builders, and their spacing is uneven: the longest gap is 3.8 times
+the median and a few points are exact duplicates. Those files are kept for the
+measurements and the DMA comparison, not because they draw well. `cat_xy.py` is
+the same cat with the resampler applied.
 
 ## Limits
 
 - Point budget is set by the flicker threshold, not by memory. At 32 kHz, 640
   points is the maximum that stays above 50 Hz.
-- Raising the sample rate requires a smaller capacitor. At 2.2 nF the filter
-  supports 64 kHz, which doubles the point budget to 1280.
+- Raising the point budget means raising the sample rate, and there are two ways
+  to do it. Keep every point settled and shrink the capacitor: at 2.2 nF the
+  filter allows 64 kHz, doubling the budget to 1280. Or accept that points no
+  longer settle individually, which is what the 512 kHz mode does.
 - At 512 kHz each point lasts 0.19 tau and the filter settles only 17.2 % of the
   way to it. That mode works because 7200 points sit close together along the
-  path, not because the output reaches each coordinate.
+  path, so the filter averages neighbours instead of chasing a step. The cost is
+  the rounding measured in `REPORT.md` section 6.
 - Resampling equalises brightness within one path but not between drawings, since
   each has its own ratio of path length to point count.
 - `even_spaced_path()` is copied into every firmware that resamples, because each

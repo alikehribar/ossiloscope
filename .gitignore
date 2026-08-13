@@ -1,4 +1,9 @@
+# Working images from experiments. The figures used by README.md and REPORT.md
+# are listed as exceptions below, so they stay in the repository.
 *.png
 !schematic.png
+!outline_compare.png
+
 *.npy
 __pycache__/
+.DS_Store
