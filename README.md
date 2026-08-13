@@ -41,7 +41,7 @@ The scope and ADC taps connect to the node between the resistor and the
 capacitor, never to the GPIO side of the resistor. The same circuit drawn as a
 schematic:
 
-<img src="schematic.png" alt="Two channel RC filter schematic" width="360">
+<img src="schematic.png" alt="Two channel RC filter schematic" width="340">
 
 Scope settings: XY mode, both channels DC coupled, 1 Mohm input impedance,
 roughly 500 mV/div to 1 V/div. The ADC taps are optional. They are only needed by
@@ -50,12 +50,12 @@ the files marked "streams" in the table below.
 The time base matters as much as the vertical scale, because the instrument has
 to acquire fast enough to resolve consecutive points.
 
-<img src="scope_output.jpg" alt="cat_xy.py drawn on the instrument" width="520">
+<img src="scope_output.jpg" alt="cat_xy.py drawn on the instrument" width="340">
 
 `cat_xy.py` at 4.0 ms/div, where the instrument acquires at 125 kS/s and the
 outline is continuous.
 
-<img src="scope_undersampled.jpg" alt="The same board acquired at 125 S/s" width="520">
+<img src="scope_undersampled.jpg" alt="The same board acquired at 125 S/s" width="340">
 
 The same running board at 4 s/div, which drops acquisition to 125 S/s. The
 instrument keeps roughly one pair in 256 and the outline breaks into dots. The
@@ -94,11 +94,7 @@ Firmware, one at a time as `code.py` on the Pico:
 | --- | --- | --- | --- |
 | `cat_xy.py` | 32000 | 400 | Cat drawn from arcs and lines built in code. |
 | `cat_outline.py` | 512000 | 7200 | Cat traced as a closed outline from a point table. |
-| `text_outline.py` | 512000 | 7200 | Word traced as outlines from a font. |
-| `text_xy.py` | 32000 | 320 | Word from a point table, at the lower sample rate. |
 | `cat_outline_livescope_fw.py` | 512000 | 7200 | `cat_outline.py` that also streams. |
-| `text_outline_livescope_fw.py` | 512000 | 7200 | `text_outline.py` that also streams. |
-| `text_livescope_fw.py` | 32000 | 320 | `text_xy.py` that also streams. |
 | `livescope_fw.py` | 32000 | 231 | The arc built cat, streaming. Not resampled, so the count is whatever the arcs produce. |
 | `selftest_adc.py` | 32000 | 231 | Same arc built cat, then benchmarks the ADC read rate. |
 | `cat_xy_pwm_legacy.py` | n/a | 231 | The first version, a `pwmio` loop with no DMA. Kept because the 20 to 40 Hz it manages is what motivated the DMA route. |
@@ -111,12 +107,7 @@ Host tools, run on the Mac:
 | File | Purpose |
 | --- | --- |
 | `livescope.py` | Live viewer for the USB stream. `--headless` saves `live_capture.npy` instead of opening a window. |
-| `outline_compare.py` | Measures a saved capture against the outline `cat_outline.py` intended to draw, and writes `outline_compare.png`. |
 | `scope_sim.py` | Simulates the RC filter to preview a path before flashing it. |
-
-The point tables inside the outline firmware were generated from a font by a
-tool that is no longer kept here. The tables are complete as they stand, so the
-firmware runs without it; a new word would need a new generator.
 
 ## Usage
 
@@ -128,9 +119,9 @@ cp cat_xy.py /Volumes/CIRCUITPY/code.py
 
 The board starts drawing as soon as it restarts, and keeps drawing without a
 computer attached. USB is only needed for power, or to receive the stream from
-one of the four `_livescope_fw.py` files.
+one of the two `_livescope_fw.py` files.
 
-The host tools need numpy, matplotlib and Pillow.
+The host tools need numpy and matplotlib.
 
 To watch the output live, flash a streaming firmware and run:
 
@@ -182,12 +173,15 @@ the same cat with the resampler applied.
 
 ## Checking the output
 
-`outline_compare.py` compares a capture against the path the firmware meant to
-draw. Left is what was sent to GP2 and GP3, right is what came back through GP26
-and GP27:
+A capture can be compared against the path the firmware meant to draw. In the
+figure below, left is what was sent to GP2 and GP3 and right is what came back
+through GP26 and GP27. The photograph beside it is the oscilloscope output:
 
-<img src="outline_compare.png" alt="Intended path beside the readback" width="720">
+<img src="outline_compare.png" alt="Intended path beside the readback" width="460"> <img src="scope_output.jpg" alt="Oscilloscope output" width="330">
 
-The steps on the right are the ADC, not the circuit: it keeps about one point in
+The photograph is `cat_xy.py` at 32 kHz with 400 points, not the 7200 point
+outline in the two plots. It shows what the screen looks like, not the same path.
+
+The steps on the plot are the ADC, not the circuit: it keeps about one point in
 (7200 / 630) = 11.4 and the viewer joins those with straight lines. The blunted
 ear tips are the RC filter. `REPORT.md` section 6 works through both.

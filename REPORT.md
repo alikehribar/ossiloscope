@@ -179,7 +179,7 @@ anything further being written to it.
 
 ## 3. Circuit
 
-![Two channel RC filter schematic](schematic.png)
+<img src="schematic.png" alt="Two channel RC filter schematic" width="340">
 
 **Figure 1.** The analog part of the project.
 
@@ -270,7 +270,7 @@ drawing while the drawing continues.
 
 ## 5. Results
 
-![The drawing on the oscilloscope](scope_output.jpg)
+<img src="scope_output.jpg" alt="cat_xy.py drawn on the instrument" width="340">
 
 **Figure 2.** Output of `cat_xy.py` on an Owon SmartDS5032E in XY mode. Both
 channels at 1 V per division, the instrument acquiring at 125 kS/s with its time
@@ -281,7 +281,7 @@ continuous, and the connecting lines between the head, the eyes and the nose are
 visible as part of the drawing, which is the consequence of having no way to
 blank the beam.
 
-![The same drawing acquired at 125 S/s](scope_undersampled.jpg)
+<img src="scope_undersampled.jpg" alt="The same board acquired at 125 S/s" width="340">
 
 **Figure 3.** The same running board with the time base at 4 s per division,
 which drops the acquisition rate to 125 S/s. Vertical scale is 500 mV per
@@ -375,7 +375,7 @@ and passes it through a 7 sample median filter before display, so the trace
 plotted here is exactly what the live viewer shows. One lap turned out to be 630
 ADC sample pairs, which at 71.1 laps per second is 44800 pairs per second.
 
-![Intended path beside the readback](outline_compare.png)
+<img src="outline_compare.png" alt="Intended path beside the readback" width="460">
 
 **Figure 4.** The 7200 point outline as it was sent to GP2 and GP3, beside the
 same outline read back through GP26 and GP27. Both panels are plotted in volts on
