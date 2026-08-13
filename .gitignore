@@ -1,3 +1,4 @@
 *.png
+!schematic.png
 *.npy
 __pycache__/
