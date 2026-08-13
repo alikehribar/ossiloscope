@@ -329,6 +329,39 @@ because there the rate depended on how fast the code ran and could not be
 predicted from the buffer alone. That contrast is the result: the same path on
 the same hardware, made steady by moving it off the CPU.
 
+### 5.1 Why the outputs do not reach 0 and 3.3 V
+
+The two voltage rows of Table 1 invite an obvious question. The PWM DAC can
+produce anything from 0 to 3.3 V, and section 4.1 maps a coordinate of -1 to a
+duty of 0 and +1 to 65535, yet X only spans 0.426 to 2.850 V and Y only 0.562 to
+3.226 V. Nothing is being lost. The cat simply does not fill the coordinate box
+it is drawn in.
+
+The path can be measured directly. Its corners run from -0.720 to 0.720 on the X
+axis and from -0.620 to 0.950 on Y, and putting those through the same mapping
+gives the voltages the circuit ought to produce:
+
+**Table 2.** Voltages predicted from the path geometry, against Table 1.
+
+| Quantity | From the path | Measured | Difference |
+| --- | --- | --- | --- |
+| X mean | 1.690 V | 1.696 V | 6 mV |
+| X min / max | 0.462 / 2.838 V | 0.426 / 2.850 V | 36 / 12 mV |
+| Y mean | 1.719 V | 1.725 V | 6 mV |
+| Y min / max | 0.627 / 3.217 V | 0.562 / 3.226 V | 65 / 9 mV |
+
+The means agree to 6 mV on both axes, which is about 0.2 % of the 3.3 V range,
+and no part of the calculation was fitted to the measurement. The output
+therefore covers exactly the range the drawing asks for.
+
+The extremes agree less well, and the reason is what they are rather than a fault
+in the circuit. A mean averages 3000 samples, while a minimum or a maximum is one
+single sample: the lowest of 3000 readings taken from a 231 point path that
+repeats 138.5 times a second. Which instants the ADC happens to catch changes
+from run to run, and so do the extremes, by tens of millivolts. The means return
+within 2 mV on a repeat. When a number is quoted from this measurement, the mean
+is the one that carries information.
+
 ## 6. Predicting and measuring the outline drawing
 
 ### 6.1 What the second drawing asks of the filter
@@ -382,7 +415,7 @@ same outline read back through GP26 and GP27. Both panels are plotted in volts o
 the same axes, so the difference between them is the difference between the two
 signals and not an effect of scaling.
 
-**Table 2.** Predicted and measured values for the outline firmware.
+**Table 3.** Predicted and measured values for the outline firmware.
 
 | Quantity | Value | Source |
 | --- | --- | --- |
@@ -405,9 +438,12 @@ signals and not an effect of scaling.
 The mean distance from a measured point to the nearest point of the intended
 outline is 15.0 mV, against the 16.1 mV predicted from the time constant alone.
 The prediction was made from R, C and the sample rate, with nothing fitted to the
-capture, so the agreement is the useful part of this section: the filter is
-behaving as section 2.4 says it should, and the error visible on screen is the
-error the component values buy.
+capture, so the filter is behaving as section 2.4 says it should and the error
+visible on screen is the error the component values buy. How much weight the
+closeness of the two numbers can carry is a separate question, and section 6.3
+answers it: the readback carries an error of its own, of comparable size, so this
+agreement establishes the right order of magnitude rather than a match to three
+figures.
 
 The size of that number also rules out the other candidate. The Pico 2 has a 12
 bit ADC, which over 3.3 V gives a step of
@@ -416,6 +452,17 @@ bit ADC, which over 3.3 V gives a step of
 
 The measured deviation is about 19 of those steps, far too large to be the
 converter counting coarsely and small enough to match the filter.
+
+The capture confirms the converter width rather than taking it on trust.
+CircuitPython reports `AnalogIn.value` as a 16 bit number whatever the hardware
+underneath is, so the raw readings look like 16 bit data. Listing the distinct
+values that actually occur in the capture and taking the gaps between them gives
+a spacing of exactly 16, and
+
+    (65536 / 4096) = 16
+
+so only one value in every 16 is reachable. The converter behind the 16 bit
+interface is a 12 bit one, and 0.806 mV is the right step to compare against.
 
 The spans shrink as expected. X was told to cover 3.041 V and covers 2.995 V, a
 loss of 46 mV or 1.5 %; Y was told to cover 3.092 V and covers 3.033 V, a loss of
@@ -445,3 +492,112 @@ polygon of a 7200 point path. This is the same undersampling that produced Figur
 where the steps are visible: a straight run of the outline is reproduced exactly
 by a chord across it, so the staircase only shows up on the curves, along the
 cheeks and around the ears.
+
+### 6.3 The oscilloscope and the ADC readback compared
+
+The board's output is looked at twice in this report, by two instruments that tap
+the same node and disagree about what they can see. Figure 2 is the oscilloscope
+screen; the right hand panel of Figure 4 is the ADC readback drawn by
+`livescope.py`. Neither is a check on the other, and it is worth being clear
+about why.
+
+**Table 4.** The two ways the output is observed.
+
+| | Oscilloscope, Figure 2 | ADC readback, Figure 4 |
+| --- | --- | --- |
+| Rate | 125 kS/s | 44800 pairs/s |
+| Against a drawing at | 32000 points/s | 512000 points/s |
+| Sampling density | 3.9 samples per point | 1 pair per 11.4 points |
+| X and Y | same instant | read one after the other |
+| Record | 10K deep, 80.0 ms, 11.1 laps | 2048 pair bursts |
+| Output | a photograph | numbers |
+
+The first thing the table settles is why the two figures look so different. The
+oscilloscope takes about four samples for every point the board draws, so the
+figure on screen is denser than the drawing itself and appears continuous. The
+ADC keeps one pair in every 11.4 points, so the readback is sparser than the
+drawing and shows as a polygon. That is a difference in the observers, not in the
+board.
+
+The second row is the one that limits the measurement. Section 2.1 describes the
+instrument taking the two samples belonging to the same instant, one per channel,
+which is what makes a sample pair a point. The readback firmware cannot do that.
+It reads the two converters in sequence:
+
+```python
+capture[(i * 2)] = x_in.value
+capture[((i * 2) + 1)] = y_in.value
+```
+
+so the X and the Y of one recorded pair come from different moments. The gap
+between them is not directly measurable here, but it is bounded by the pair
+period, (1 / 44800) = 22.3 us, and the drawing does not stand still during it. At
+512000 points per second the beam covers up to 11.4 points in that time, which is
+2.68 units of path, or 34.7 mV.
+
+That figure deserves attention because of what it sits next to. Section 6.2
+measured the readback as 15.0 mV from the intended outline and matched it against
+16.1 mV predicted from the time constant. The agreement is close, but the
+measurement path carries a second error source of up to 34.7 mV that has nothing
+to do with the filter. The two do not simply add, since the skew displaces a
+point along the drawing rather than across it and contributes little where the
+path runs along one axis, but the honest reading of section 6.2 is weaker than it
+first appears: the filter model predicts the right order of magnitude, and the
+measurement is not clean enough to call it a confirmation to two figures.
+
+Improving this is a firmware question rather than a circuit one. The RP2350 has
+one converter multiplexed across its inputs, so genuinely simultaneous pairs are
+not available, but reading X, then Y, then X again and averaging the two X
+readings would centre the pair in time and remove most of the skew.
+## 7. Conclusion
+
+The project set out to draw a picture in XY mode from points the board generates
+itself, and it does. Two PWM pins and two RC filters stand in for a DAC the Pico
+2 does not have, a DMA engine borrowed from the audio peripheral replays the
+point buffer without the processor, and the drawing holds still on the screen.
+
+The part worth keeping is what the same filter does at two different speeds. R
+and C were never changed, so tau stayed at 10.34 us throughout, but the time
+given to one point was changed by a factor of sixteen, and that turns one circuit
+into two different instruments:
+
+**Table 5.** The same filter used two ways.
+
+| | Section 5, 32 kHz | Section 6, 512 kHz |
+| --- | --- | --- |
+| Time per point | 31.25 us | 1.953 us |
+| In time constants | 3.02 tau | 0.189 tau |
+| Settling within one point | 95.1 % | 17.2 % |
+| Points per drawing | 231 | 7200 |
+| Frame rate | 138.5 Hz | 71.1 Hz |
+| How it works | each point is reached | neighbours are averaged |
+
+The left column is the textbook arrangement: give the filter three time constants
+and it arrives at each coordinate before the next one is written. The right
+column breaks that rule and works anyway, because 7200 points along a 1687 unit
+perimeter sit 3.03 mV apart, and a filter that cannot follow a 3 mV step in the
+time available is not failing, it is averaging. Section 6 measured the cost of
+that averaging as 15.0 mV, the same order as the 16.1 mV predicted from tau
+alone, and the visible price is a pair of blunted ear tips.
+
+Two conditions turned out to matter more than any component value. The drawing
+must be one closed, ordered path, because there is no frame buffer and no way to
+blank the beam. And the instrument has to sample fast enough to resolve the
+points it is sent, which is a property of the oscilloscope rather than of the
+circuit; Figure 3 shows the same board producing a cloud of dots when that
+condition is dropped.
+
+### 7.1 What is not measured here
+
+Two numbers introduced in the theory are never given a value in this report.
+
+Section 2.2 describes ripple, the switching the filter fails to remove, and no
+figure for it appears anywhere. The readback path cannot supply one. The ADC
+manages 44800 pairs per second, so it cannot resolve anything above roughly
+22 kHz, while the PWM carrier sits far above that. Any ripple present in the
+capture is aliased down and indistinguishable from noise. Measuring it needs the
+oscilloscope on one node with the time base in microseconds, not the ADC branch.
+
+For the same reason the PWM carrier frequency itself is quoted nowhere. It is set
+inside `audiopwmio` rather than by this code, and it was never read off the
+instrument.

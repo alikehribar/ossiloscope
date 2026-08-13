@@ -73,8 +73,8 @@ board is doing the same thing in both photographs.
 | X output, mean / min / max | 1.696 / 0.426 / 2.850 V | measured |
 | Y output, mean / min / max | 1.725 / 0.562 / 3.226 V | measured |
 | ADC rate, list comprehension benchmark | 58664 pairs/s | measured |
-| ADC rate, streaming firmware in practice | 43900 pairs/s | measured |
-| USB streaming throughput | about 144 kB/s, 18 frames/s | measured |
+| ADC rate, streaming firmware in practice | 42018 pairs/s | measured |
+| USB streaming throughput | about 164 kB/s, 20.5 frames/s | measured |
 
 Voltages were measured by the Pico reading its own outputs through GP26 and GP27.
 
@@ -82,10 +82,17 @@ The ADC rate row comes from `selftest_adc.py`, which times ten list
 comprehensions of 3000 pairs with `time.monotonic_ns()` while the drawing plays,
 and is the mean of four runs that spread 0.04 %. Ten repeats are used instead of
 one long comprehension because a single list of 20000 pairs runs the board out of
-memory. The mean and the extremes above it behave differently on a repeat: the
-means return within 2 mV, while the minimum and maximum are single samples out of
-3000 taken from a 231 point path and move by tens of millivolts depending on
-which instants are caught.
+memory. The mean and the extremes above it behave differently on a repeat: repeat runs
+give the same means within 2 mV, while the minimum and maximum are single samples
+out of 3000 taken from a 231 point path and move by tens of millivolts depending
+on which instants are caught.
+
+The two streaming rows are one measurement written three ways. `livescope_fw.py`
+sends a 4 byte marker followed by 2048 pairs of two `uint16` values, so a frame
+is (4 + 8192) = 8196 bytes on the wire. Counting frames arriving over a 20 second
+window gives the frame rate, and the other two rows follow from it as
+(frames * 2048) pairs/s and (frames * 8196) bytes/s. Three windows agreed to
+0.04 %.
 
 The voltage and rate rows were taken from the arc built 231 point path at 32 kHz,
 which redraws at (32000 / 231) = 138.5 Hz. That path is still what
@@ -93,7 +100,10 @@ which redraws at (32000 / 231) = 138.5 Hz. That path is still what
 and resamples to 400 points, giving (32000 / 400) = 80 Hz.
 
 `REPORT.md` section 6 covers the 512 kHz outline mode, where the readback sits
-15.0 mV from the intended path against 16.1 mV predicted from the time constant.
+15.0 mV from the intended path, the same order as the 16.1 mV predicted from the
+time constant. Section 6.3 explains why that comparison is good for an order of
+magnitude and not for a third figure: the readback reads X and Y one after the
+other, which can displace a pair by up to 34.7 mV on its own.
 
 ## Files
 
