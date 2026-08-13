@@ -105,9 +105,20 @@ audio.play(sample, loop=True)
 x_in = analogio.AnalogIn(board.GP26)
 y_in = analogio.AnalogIn(board.GP27)
 
+N = 3000
+REPS = 10
+
 time.sleep(2.0)
 print("BEGIN")
-for _ in range(3000):
+total_ns = 0
+for _ in range(REPS):
+    t0 = time.monotonic_ns()
+    pairs = [(x_in.value, y_in.value) for _ in range(N)]
+    t1 = time.monotonic_ns()
+    total_ns += (t1 - t0)
+    pairs = None
+print("rate_pairs_per_s", (((N * REPS) * 1000000000) / total_ns))
+for _ in range(N):
     print(x_in.value, y_in.value)
 print("END")
 

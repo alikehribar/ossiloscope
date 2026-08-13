@@ -319,7 +319,7 @@ circuit, the sample rate and the voltages are the same either way.
 | Frame rate | 138.5 Hz | derived |
 | X output, mean / min / max | 1.696 / 0.426 / 2.850 V | measured |
 | Y output, mean / min / max | 1.725 / 0.562 / 3.226 V | measured |
-| ADC rate, list comprehension benchmark | 52206 pairs/s | measured |
+| ADC rate, list comprehension benchmark | 58664 pairs/s | measured |
 
 The frame rate is listed as derived because it is not read off an instrument. It
 follows from the two rows above it, as (32000 / 231) = 138.5 Hz, and holds
