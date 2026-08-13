@@ -116,3 +116,4 @@ CircuitPython exposes no direct DMA API; this is the available route to it.
   by arc length would correct this.
 - The live viewer samples X and Y sequentially, about 9.6 us apart, which shears each
   reading by roughly 0.3 of a point.
+# ossiloscope
