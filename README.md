@@ -11,11 +11,9 @@ Owon SmartDS5032E.
 
 ## Circuit
 
-![Two channel RC filter schematic](schematic.png)
-
 Both channels are identical: a 2.2 kohm resistor in series with the PWM pin and a
-4.7 nF capacitor to ground, with the output taken between them. The same circuit
-in terms of physical Pico pins:
+4.7 nF capacitor to ground, with the output taken between them. In terms of
+physical Pico pins:
 
 ```
                     2.2 kohm            X node
@@ -40,7 +38,10 @@ in terms of physical Pico pins:
 ```
 
 The scope and ADC taps connect to the node between the resistor and the
-capacitor, never to the GPIO side of the resistor.
+capacitor, never to the GPIO side of the resistor. The same circuit drawn as a
+schematic:
+
+<img src="schematic.png" alt="Two channel RC filter schematic" width="360">
 
 Scope settings: XY mode, both channels DC coupled, 1 Mohm input impedance,
 roughly 500 mV/div to 1 V/div. The ADC taps are optional. They are only needed by
@@ -49,12 +50,12 @@ the files marked "streams" in the table below.
 The time base matters as much as the vertical scale, because the instrument has
 to acquire fast enough to resolve consecutive points.
 
-![cat_xy.py drawn on the instrument](scope_output.jpg)
+<img src="scope_output.jpg" alt="cat_xy.py drawn on the instrument" width="520">
 
 `cat_xy.py` at 4.0 ms/div, where the instrument acquires at 125 kS/s and the
 outline is continuous.
 
-![The same board acquired at 125 S/s](scope_undersampled.jpg)
+<img src="scope_undersampled.jpg" alt="The same board acquired at 125 S/s" width="520">
 
 The same running board at 4 s/div, which drops acquisition to 125 S/s. The
 instrument keeps roughly one pair in 256 and the outline breaks into dots. The
@@ -185,7 +186,7 @@ the same cat with the resampler applied.
 draw. Left is what was sent to GP2 and GP3, right is what came back through GP26
 and GP27:
 
-![Intended path beside the readback](outline_compare.png)
+<img src="outline_compare.png" alt="Intended path beside the readback" width="720">
 
 The steps on the right are the ADC, not the circuit: it keeps about one point in
 (7200 / 630) = 11.4 and the viewer joins those with straight lines. The blunted
