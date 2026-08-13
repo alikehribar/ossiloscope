@@ -11,6 +11,12 @@ Owon SmartDS5032E.
 
 ## Circuit
 
+![Two channel RC filter schematic](schematic.png)
+
+Both channels are identical: a 2.2 kohm resistor in series with the PWM pin and a
+4.7 nF capacitor to ground, with the output taken between them. The same circuit
+in terms of physical Pico pins:
+
 ```
                     2.2 kohm            X node
    GP2  (pin 4)  ---[========]-------------+------------  scope CH1  (X)
@@ -37,46 +43,76 @@ The scope and ADC taps connect to the node between the resistor and the
 capacitor, never to the GPIO side of the resistor.
 
 Scope settings: XY mode, both channels DC coupled, 1 Mohm input impedance,
-roughly 500 mV/div to 1 V/div. The time base matters as much as the vertical
-scale, because the instrument has to acquire fast enough to resolve consecutive
-points; see `scope_undersampled.jpg` for what happens when it does not. The ADC
-taps are optional and only used by `text_outline_livescope_fw.py`.
+roughly 500 mV/div to 1 V/div. The ADC taps are optional. They are only needed by
+the files marked "streams" in the table below.
 
-## Measured values
+The time base matters as much as the vertical scale, because the instrument has
+to acquire fast enough to resolve consecutive points.
 
-| Quantity | Value |
-| --- | --- |
-| RC time constant, `R * C` | 10.34 us |
-| RC cutoff frequency | 15.4 kHz |
-| Sample rate | 32000 points/s |
-| Time per point | 31.25 us = 3.02 tau |
-| Settling per point | 95.1 % |
-| Path length | 231 points |
-| Frame rate | 138.5 Hz |
-| Point budget at 50 Hz | 640 points |
-| X output, mean / min / max | 1.696 / 0.426 / 2.850 V |
-| Y output, mean / min / max | 1.725 / 0.562 / 3.226 V |
-| ADC sampling rate, list comprehension benchmark | 52206 pairs/s |
-| ADC sampling rate, streaming firmware in practice | 43900 pairs/s |
-| USB streaming throughput | about 144 kB/s, 18 frames/s |
+![cat_xy.py drawn on the instrument](scope_output.jpg)
+
+`cat_xy.py` at 4.0 ms/div, where the instrument acquires at 125 kS/s and the
+outline is continuous.
+
+![The same board acquired at 125 S/s](scope_undersampled.jpg)
+
+The same running board at 4 s/div, which drops acquisition to 125 S/s. The
+instrument keeps roughly one pair in 256 and the outline breaks into dots. The
+board is doing the same thing in both photographs.
+
+## Values
+
+| Quantity | Value | Source |
+| --- | --- | --- |
+| RC time constant, `R * C` | 10.34 us | derived |
+| RC cutoff frequency | 15.4 kHz | derived |
+| Time per point at 32 kHz | 31.25 us = 3.02 tau | derived |
+| Settling per point at 32 kHz | 95.1 % | derived |
+| Point budget at 50 Hz and 32 kHz | 640 points | derived |
+| X output, mean / min / max | 1.696 / 0.426 / 2.850 V | measured |
+| Y output, mean / min / max | 1.725 / 0.562 / 3.226 V | measured |
+| ADC rate, list comprehension benchmark | 52206 pairs/s | measured |
+| ADC rate, streaming firmware in practice | 43900 pairs/s | measured |
+| USB streaming throughput | about 144 kB/s, 18 frames/s | measured |
 
 Voltages were measured by the Pico reading its own outputs through GP26 and GP27.
 
-These figures come from a 231 point path at 32 kHz. `cat_xy.py` as it stands
-resamples to 400 points, which gives (32000 / 400) = 80 Hz at the same sample
-rate.
+The voltage and rate rows were taken from the arc built 231 point path at 32 kHz,
+which redraws at (32000 / 231) = 138.5 Hz. That path is still what
+`livescope_fw.py` and `selftest_adc.py` run. `cat_xy.py` is a different drawing
+and resamples to 400 points, giving (32000 / 400) = 80 Hz.
+
+`REPORT.md` section 6 covers the 512 kHz outline mode, where the readback sits
+15.0 mV from the intended path against 16.1 mV predicted from the time constant.
 
 ## Files
 
-| File | Sample rate | Output points | Purpose |
+Firmware, one at a time as `code.py` on the Pico:
+
+| File | Sample rate | Points | Purpose |
 | --- | --- | --- | --- |
 | `cat_xy.py` | 32000 | 400 | Cat drawn from arcs and lines built in code. |
 | `cat_outline.py` | 512000 | 7200 | Cat traced as a closed outline from a point table. |
 | `text_outline.py` | 512000 | 7200 | Word traced as outlines from a font. |
-| `text_outline_livescope_fw.py` | 512000 | 7200 | Same as `text_outline.py`, plus it samples GP26/GP27 and streams 2048 pair bursts over USB CDC behind the marker `\xab\xcd\xef\x01`. |
+| `text_xy.py` | 32000 | 320 | Word from a point table, at the lower sample rate. |
+| `cat_outline_livescope_fw.py` | 512000 | 7200 | `cat_outline.py` that also streams. |
+| `text_outline_livescope_fw.py` | 512000 | 7200 | `text_outline.py` that also streams. |
+| `text_livescope_fw.py` | 32000 | 320 | `text_xy.py` that also streams. |
+| `livescope_fw.py` | 32000 | 231 | The arc built cat, streaming. Not resampled, so the count is whatever the arcs produce. |
+| `selftest_adc.py` | 32000 | 231 | Same arc built cat, then benchmarks the ADC read rate. |
+| `cat_xy_pwm_legacy.py` | n/a | 231 | The first version, a `pwmio` loop with no DMA. Kept because the 20 to 40 Hz it manages is what motivated the DMA route. |
 
-All four run on the Pico. The Mac side tools that generated the point tables and
-received the USB stream are not in this repository.
+The files that stream sample GP26 and GP27 and push 2048 pair bursts over USB CDC
+behind the marker `\xab\xcd\xef\x01`.
+
+Host tools, run on the Mac:
+
+| File | Purpose |
+| --- | --- |
+| `livescope.py` | Live viewer for the USB stream. `--headless` saves `live_capture.npy` instead of opening a window. |
+| `outline_compare.py` | Measures a saved capture against the outline `cat_outline.py` intended to draw, and writes `outline_compare.png`. |
+| `textgen.py` | Turns a word into the outline point tables, using PIL and potrace. |
+| `scope_sim.py` | Simulates the RC filter to preview a path before flashing it. |
 
 ## Usage
 
@@ -119,13 +155,17 @@ long stroke from appearing dimmer than a short one.
   path, not because the output reaches each coordinate.
 - Resampling equalises brightness within one path but not between drawings, since
   each has its own ratio of path length to point count.
-- `even_spaced_path()` is duplicated in every firmware file, because each has to
-  run standalone on the board with no shared module to import.
+- `even_spaced_path()` is copied into every firmware that resamples, because each
+  one has to run standalone as `code.py` with no shared module to import.
 
-## Images
+## Checking the output
 
-| File | Shows |
-| --- | --- |
-| `schematic.png` | The two channel RC filter. |
-| `scope_output.jpg` | `cat_xy.py` on the instrument at 125 kS/s. |
-| `scope_undersampled.jpg` | The same board at 125 S/s, where the instrument keeps roughly one pair in 256 and the outline breaks into dots. |
+`outline_compare.py` compares a capture against the path the firmware meant to
+draw. Left is what was sent to GP2 and GP3, right is what came back through GP26
+and GP27:
+
+![Intended path beside the readback](outline_compare.png)
+
+The steps on the right are the ADC, not the circuit: it keeps about one point in
+(7200 / 630) = 11.4 and the viewer joins those with straight lines. The blunted
+ear tips are the RC filter. `REPORT.md` section 6 works through both.

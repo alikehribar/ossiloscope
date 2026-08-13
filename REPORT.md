@@ -310,3 +310,120 @@ directly.
 
 The result is a 231 point path redrawn 138.5 times per second, against the 20 to
 40 Hz of the Python loop described in section 4.2 on the same hardware.
+
+## 6. Predicting and measuring the outline drawing
+
+### 6.1 What the second drawing asks of the filter
+
+The cat outline in `cat_outline.py` is a closed path of 368 corners. Corner
+points alone would not do, because the beam spends the same time on every point
+it is given, so a long stroke drawn from two corners gets the same beam time as a
+short one and comes out dimmer. `even_spaced_path` therefore measures the
+perimeter, 1687.2 units on the 0 to 255 grid the corners are listed on, and
+places 7200 points along it at equal spacing, which is one point every 0.2343
+units, or 3.03 mV once the grid is mapped onto 0 to 3.3 V.
+
+This firmware runs the buffer at 512000 points per second, so
+
+    time per point = (1 / 512000) = 1.953 us
+    frame rate = (512000 / 7200) = 71.1 Hz
+
+The first number is the one that matters, because it is smaller than the time
+constant of section 2.4 rather than larger. One point now lasts
+
+    (1.953 us / 10.34 us) = 0.189 tau
+
+where the main firmware of section 4 allowed 3.02 tau per point. The filter has
+no chance to settle on any individual coordinate. This is not a fault to be
+fixed. The step from one point to the next is only 3.03 mV, and a filter that
+cannot follow a step that small in the time available is simply averaging over
+its neighbours.
+
+That gives a prediction rather than a worry. The output should be the intended
+outline smoothed over roughly the last tau of travel, which is
+
+    (10.34 us / 1.953 us) = 5.3 points = 1.24 units = 16.1 mV
+
+so the drawn dot should sit about 16 mV off the intended line wherever the line
+bends, stay on it where the line is straight, and pull the sharpest features,
+the ear tips, inward. Both axes should end up spanning slightly less than they
+were told to.
+
+### 6.2 What came back
+
+The readback path of section 4.1 supplies the measurement. `livescope.py` reads
+the burst the board sends over USB, finds one complete lap by autocorrelation,
+and passes it through a 7 sample median filter before display, so the trace
+plotted here is exactly what the live viewer shows. One lap turned out to be 630
+ADC sample pairs, which at 71.1 laps per second is 44800 pairs per second.
+
+![Intended path beside the readback](outline_compare.png)
+
+**Figure 4.** The 7200 point outline as it was sent to GP2 and GP3, beside the
+same outline read back through GP26 and GP27. Both panels are plotted in volts on
+the same axes, so the difference between them is the difference between the two
+signals and not an effect of scaling.
+
+**Table 2.** Predicted and measured values for the outline firmware.
+
+| Quantity | Value | Source |
+| --- | --- | --- |
+| Corners in the outline | 368 | set |
+| Points drawn per lap | 7200 | set |
+| Perimeter | 1687.2 units | derived |
+| Spacing between points | 0.2343 units = 3.03 mV | derived |
+| Sample rate | 512000 points/s | set |
+| Time per point | 1.953 us = 0.189 tau | derived |
+| Frame rate | 71.1 Hz | derived |
+| Smoothing predicted from tau | 16.1 mV | derived |
+| Off-path distance, mean | 15.0 mV | measured |
+| Off-path distance, median | 12.8 mV | measured |
+| Off-path distance, worst | 59.5 mV | measured |
+| X span, intended and measured | 3.041 V, 2.995 V | measured |
+| Y span, intended and measured | 3.092 V, 3.033 V | measured |
+| ADC pairs per lap | 630 | measured |
+| ADC rate in this firmware | 44800 pairs/s | derived |
+
+The mean distance from a measured point to the nearest point of the intended
+outline is 15.0 mV, against the 16.1 mV predicted from the time constant alone.
+The prediction was made from R, C and the sample rate, with nothing fitted to the
+capture, so the agreement is the useful part of this section: the filter is
+behaving as section 2.4 says it should, and the error visible on screen is the
+error the component values buy.
+
+The size of that number also rules out the other candidate. The Pico 2 has a 12
+bit ADC, which over 3.3 V gives a step of
+
+    (3.3 V / 4096) = 0.806 mV
+
+The measured deviation is about 19 of those steps, far too large to be the
+converter counting coarsely and small enough to match the filter.
+
+The spans shrink as expected. X was told to cover 3.041 V and covers 2.995 V, a
+loss of 46 mV or 1.5 %; Y was told to cover 3.092 V and covers 3.033 V, a loss of
+59 mV or 1.9 %. Blunted corners are the reason, and Figure 4 shows it directly:
+the ear tips in the readback are rounder than the ones that were sent, because an
+average over the last 5.3 points cannot reach a corner that the path leaves again
+immediately.
+
+The worst single deviation, 59.5 mV, does sit at the tip of the left ear, but the
+rest of the large deviations are scattered rather than collected at the corners.
+The second worst falls at (2.66 V, 1.51 V), partway along a straight stretch of
+the right cheek, where filter lag predicts almost no error at all. The mean is
+therefore the figure that tests the model of section 2.4; the worst case mixes
+filter lag with whatever ADC noise survived the 7 sample median, and should not
+be read as a measurement of the filter alone.
+
+One feature of Figure 4 belongs to the measurement rather than to the circuit.
+The right hand panel is visibly built from straight steps, although the board
+draws 7200 points per lap. The ADC captures 630 pairs in the time the board draws
+7200 points, so it keeps roughly one point in every
+
+    (7200 / 630) = 11.4
+
+and the viewer joins those with straight lines. What is plotted is a 630 sided
+polygon of a 7200 point path. This is the same undersampling that produced Figure
+3, met here in the readback path instead of on the oscilloscope. It also explains
+where the steps are visible: a straight run of the outline is reproduced exactly
+by a chord across it, so the staircase only shows up on the curves, along the
+cheeks and around the ears.
