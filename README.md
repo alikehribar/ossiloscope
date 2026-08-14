@@ -71,7 +71,6 @@ For 32Khz dot/s
 | --- | --- | --- |
 | RC time constant, `R * C` | 10.34 us | derived |
 | RC cutoff frequency | 15.4 kHz | derived |
-
 | Settling per point at 32 kHz | 95.1 % | derived |
 | X output, mean / min / max | 1.696 / 0.426 / 2.850 V | measred |
 | Y output, mean / min / max | 1.725 / 0.562 / 3.226 V | measured |
