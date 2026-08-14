@@ -196,17 +196,17 @@ Each channel is built from three elements. A pulse source, V1 for the X axis and
 V2 for the Y axis, stands in for the microcontroller pin; on the board these are
 GP2 and GP3 emitting the PWM square wave described in section 2.2. In series with
 that source is a 2.2 kohm resistor. From the far side of the resistor a 4.7 nF
-capacitor runs down to ground. The output connector, J1 for X and J2 for Y, is
-taken from the node between the resistor and the capacitor.
+capacitor runs down to ground. Two connectors are taken from the node between
+the resistor and the capacitor: J1 and J2 on the X channel, J3 and J4 on the Y
+channel. The first of each pair goes to the oscilloscope, the second to the ADC
+tap through which the Pico reads its own output back on GP26 and GP27.
 
-That node is the one point in the circuit that has to be got right. The
-oscilloscope probe attaches there, and so does the ADC tap through which the Pico
-reads back its own output. Connecting either of them on the GPIO side of the
-resistor instead would bypass the capacitor and put the raw square wave on the
-screen.
+That node is the one point in the circuit that has to be got right. Connecting
+either the probe or the ADC tap on the GPIO side of the resistor instead would
+bypass the capacitor and put the raw square wave on the screen.
 
-The two channels share a single ground, which is also where the scope ground
-clips go.
+The two channels share a single ground, brought out on J5 and J6, which is also
+where the scope ground clips go.
 
 ## 4. Method
 
