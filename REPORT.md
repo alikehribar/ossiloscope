@@ -42,8 +42,6 @@ are:
 - Volts per division sets the vertical scale, so a taller trace means a larger
   voltage.
 - Time per division sets how fast the sweep crosses the screen.
-- Coupling selects DC, which passes the whole signal including its average level,
-  or AC, which blocks the average and shows only the variation.
 - Input impedance, 1 Mohm here, is the resistance the probe presents to the
   circuit under test. A high value keeps the instrument from loading the circuit
   it is measuring.
@@ -335,7 +333,6 @@ rate and the voltages are the same either way.
 | Frame rate | 138.5 Hz | derived |
 | X output, mean / min / max | 1.696 / 0.426 / 2.850 V | measured |
 | Y output, mean / min / max | 1.725 / 0.562 / 3.226 V | measured |
-| ADC rate, list comprehension benchmark | 58664 pairs/s | measured |
 
 The frame rate is listed as derived because it is not read off an instrument. It
 follows from the two rows above it, as (32000 / 231) = 138.5 Hz, and holds
@@ -372,11 +369,9 @@ therefore covers exactly the range the drawing asks for.
 
 The extremes agree less well, and the reason is what they are rather than a fault
 in the circuit. A mean averages 3000 samples, while a minimum or a maximum is one
-single sample: the lowest of 3000 readings taken from a 231 point path that
-repeats 138.5 times a second. Which instants the ADC happens to catch changes
-from run to run, and so do the extremes, by tens of millivolts. The means return
-within 2 mV on a repeat. When a number is quoted from this measurement, the mean
-is the one that carries information.
+single sample. Means are therefore the reliable numbers here; minimum and maximum
+are affected far more by ADC noise, and move by tens of millivolts from run to
+run, while the means return within 2 mV on a repeat.
 
 ## 6. Predicting and measuring the outline drawing
 
@@ -419,8 +414,8 @@ were told to.
 ### 6.2 What came back
 
 The readback path of section 4.1 supplies the measurement. `livescope.py` reads
-the burst the board sends over USB, finds one complete lap by autocorrelation,
-and passes it through a 7 sample median filter before display, so the trace
+the burst the board sends over USB, finds one complete lap of the drawing in that
+data, and passes it through a 7 sample median filter before display, so the trace
 plotted here is exactly what the live viewer shows. One lap turned out to be 630
 ADC sample pairs, which at 71.1 laps per second is 44800 pairs per second.
 
@@ -466,23 +461,12 @@ agreement establishes the right order of magnitude rather than a match to three
 figures.
 
 The size of that number also rules out the other candidate. The Pico 2 has a 12
-bit ADC, which over 3.3 V gives a step of
+bit ADC, so over the 3.3 V range one step is
 
     (3.3 V / 4096) = 0.806 mV
 
 The measured deviation is about 19 of those steps, far too large to be the
 converter counting coarsely and small enough to match the filter.
-
-The capture confirms the converter width rather than taking it on trust.
-CircuitPython reports `AnalogIn.value` as a 16 bit number whatever the hardware
-underneath is, so the raw readings look like 16 bit data. Listing the distinct
-values that actually occur in the capture and taking the gaps between them gives
-a spacing of exactly 16, and
-
-    (65536 / 4096) = 16
-
-so only one value in every 16 is reachable. The converter behind the 16 bit
-interface is a 12 bit one, and 0.806 mV is the right step to compare against.
 
 The spans shrink as expected. X was told to cover 3.041 V and covers 2.995 V, a
 loss of 46 mV or 1.5 %; Y was told to cover 3.092 V and covers 3.033 V, a loss of
@@ -493,11 +477,9 @@ immediately.
 
 The worst single deviation, 59.5 mV, does sit at the tip of the left ear, but the
 rest of the large deviations are scattered rather than collected at the corners.
-The second worst falls at (2.66 V, 1.51 V), partway along a straight stretch of
-the right cheek, where filter lag predicts almost no error at all. The mean is
-therefore the figure that tests the model of section 2.4; the worst case mixes
-filter lag with whatever ADC noise survived the 7 sample median, and should not
-be read as a measurement of the filter alone.
+The mean is therefore the figure that tests the model of section 2.4; the worst
+case mixes filter lag with whatever ADC noise survived the 7 sample median, and
+should not be read as a measurement of the filter alone.
 
 One feature of Figure 4 belongs to the measurement rather than to the circuit.
 The right hand panel is visibly built from straight steps, although the board
@@ -536,7 +518,6 @@ between the two drawings.
 | Against a drawing at | 32000 points/s | 512000 points/s |
 | Sampling density | 3.9 samples per point | 1 pair per 11.4 points |
 | X and Y | same instant | read one after the other |
-| Record | 10K deep, 80.0 ms, 11.1 laps | 2048 pair bursts |
 | Output | a photograph | numbers |
 
 The first thing the table settles is why the two figures look so different. The
@@ -549,43 +530,37 @@ board.
 The second row is the one that limits the measurement. Section 2.1 describes the
 instrument taking the two samples belonging to the same instant, one per channel,
 which is what makes a sample pair a point. The readback firmware cannot do that.
-It reads the two converters in sequence:
+The X and Y values are not read at exactly the same time, so a small time
+difference appears in the measurement. That gap is bounded by the pair period,
 
-```python
-capture[(i * 2)] = x_in.value
-capture[((i * 2) + 1)] = y_in.value
-```
+    (1 / 44800) = 22.3 us
 
-so the X and the Y of one recorded pair come from different moments. The gap
-between them is not directly measurable here, but it is bounded by the pair
-period, (1 / 44800) = 22.3 us, and the drawing does not stand still during it. At
-512000 points per second the beam covers up to 11.4 points in that time, which is
-2.68 units of path, or 34.7 mV.
+and the drawing does not stand still during it. At 512000 points per second the
+beam covers up to 11.4 points in that time, which is 2.68 units of path, or
+34.7 mV.
 
 That figure deserves attention because of what it sits next to. Section 6.2
 measured the readback as 15.0 mV from the intended outline and matched it against
 16.1 mV predicted from the time constant. The agreement is close, but the
 measurement path carries a second error source of up to 34.7 mV that has nothing
-to do with the filter. The two do not simply add, since the skew displaces a
-point along the drawing rather than across it and contributes little where the
-path runs along one axis, but the honest reading of section 6.2 is weaker than it
-first appears: the filter model predicts the right order of magnitude, and the
-measurement is not clean enough to call it a confirmation to two figures.
+to do with the filter. The two do not simply add, since the time difference
+displaces a point along the drawing rather than across it and contributes little
+where the path runs along one axis, but the honest reading of section 6.2 is
+weaker than it first appears: the filter model predicts the right order of
+magnitude, and the measurement is not clean enough to call it a confirmation to
+two figures.
 
-Improving this is a firmware question rather than a circuit one. The RP2350 has
-one converter multiplexed across its inputs, so genuinely simultaneous pairs are
-not available, but reading X, then Y, then X again and averaging the two X
-readings would centre the pair in time and remove most of the skew.
+Improving this is a firmware question rather than a circuit one. Reading X, then
+Y, then X again and averaging the two X readings would centre the pair in time
+and remove most of the difference.
+
 ### 6.4 The same measurement on a second drawing
 
 Section 6.2 measured one drawing. A single measurement cannot separate what the
 circuit does from what that particular cat happens to ask of it, so the same
-firmware structure was given a second picture: the word W2AEW, in
-`w2aew_outline.py`. The point table is produced by `textgen.py`, which draws the
-letters in Arial Bold with negative tracking so that neighbouring glyphs overlap
-and fuse, traces the fused shape with `potrace`, and joins the two closed
-contours it gets back, the word and the hole in the A, into a single loop along
-the baseline. The result is 486 corners against the cat's 368, a perimeter of
+firmware structure was given a second picture. For this second test a closed path
+with a completely different shape was built from the word W2AEW, in
+`w2aew_outline.py`. It has 486 corners against the cat's 368, a perimeter of
 1666.8 units against 1687.2, and a completely different distribution of
 directions: the word is almost all vertical and horizontal runs, while the cat is
 almost all curves.
@@ -628,9 +603,9 @@ that drawing.
 | Y span, intended and measured | 0.634 V, 0.647 V | 3.092 V, 3.028 V | measured |
 
 The cat column is a fresh capture, not the one section 6.2 reports, which is
-why its lap comes out at 629 pairs against the 630 recorded there: the lap length
-is found by autocorrelation on a burst that starts at an arbitrary point, so it
-moves by a sample or two between runs.
+why its lap comes out at 629 pairs against the 630 recorded there: the lap is
+found in a burst that starts at an arbitrary point, so its length moves by a
+sample or two between runs.
 
 The two means agree at 14.3 mV. Since the drawings differ in shape, corner count
 and the direction their strokes run, while agreeing in point spacing and time per
@@ -647,13 +622,6 @@ extremes are set by a handful of samples at the top and bottom of a short span,
 and ADC noise of a few millivolts widens the pair of extremes instead of pulling
 them together. The effect is real but it is a property of measuring a short span
 with single samples, not of the filter.
-
-A capture taken immediately after reloading the board reads 123.6 mV by this
-measure, nearly nine times the value above, and the reading is spurious: the host still
-holds bytes the previous firmware sent, so the marker search stitches the tail of
-one drawing onto the head of another and every point of the join lands off the
-path. The captures in Table 5 were taken after draining the serial buffer for
-three seconds, which is the only reason the two runs of the cat agree.
 
 ## 7. Conclusion
 
