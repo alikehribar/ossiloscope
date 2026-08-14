@@ -4,6 +4,11 @@ Draws a picture on an oscilloscope in XY mode using a Raspberry Pi Pico 2
 (RP2350) running CircuitPython. Two PWM pins plus RC filters act as a two channel
 DAC; the point stream is pushed by DMA, so the CPU is not involved in drawing.
 
+I started this project to learn how to use an oscilloscope, how PWM works, how to
+build and understand an RC circuit, and how to draw vector images on an
+oscilloscope. By the end of the project, I had learned these topics to a level
+that was sufficient to understand and complete this project successfully.
+
 Verified on Adafruit CircuitPython 10.2.1, board id `raspberry_pi_pico2`, with an
 Owon SmartDS5032E.
 
