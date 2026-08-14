@@ -378,9 +378,9 @@ run, while the means return within 2 mV on a repeat.
 ### 6.1 What the second drawing asks of the filter
 
 The cat outline in `cat_outline.py` is a closed path of 368 corners. Corner
-points alone would not do, because the beam spends the same time on every point
-it is given, so a long stroke drawn from two corners gets the same beam time as a
-short one and comes out dimmer. `even_spaced_path` therefore measures the
+points alone would not do, because the dot spends the same time on every point
+it is given, so a long stroke drawn from two corners gets the same drawing time
+as a short one and comes out dimmer. `even_spaced_path` therefore measures the
 perimeter, 1687.2 units on the 0 to 255 grid the corners are listed on, and
 places 7200 points along it at equal spacing, which is one point every 0.2343
 units, or 3.03 mV once the grid is mapped onto 0 to 3.3 V.
@@ -536,7 +536,7 @@ difference appears in the measurement. That gap is bounded by the pair period,
     (1 / 44800) = 22.3 us
 
 and the drawing does not stand still during it. At 512000 points per second the
-beam covers up to 11.4 points in that time, which is 2.68 units of path, or
+dot covers up to 11.4 points in that time, which is 2.68 units of path, or
 34.7 mV.
 
 That figure deserves attention because of what it sits next to. Section 6.2
@@ -656,7 +656,7 @@ alone, and the visible price is a pair of blunted ear tips.
 
 Two conditions turned out to matter more than any component value. The drawing
 must be one closed, ordered path, because there is no frame buffer and no way to
-blank the beam. And the instrument has to sample fast enough to resolve the
+turn the dot off. And the instrument has to sample fast enough to resolve the
 points it is sent, which is a property of the oscilloscope rather than of the
 circuit; Figure 3 shows the same board producing a cloud of dots when that
 condition is dropped.

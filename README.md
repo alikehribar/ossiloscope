@@ -72,31 +72,15 @@ board is doing the same thing in both photographs.
 | Point budget at 50 Hz and 32 kHz | 640 points | derived |
 | X output, mean / min / max | 1.696 / 0.426 / 2.850 V | measured |
 | Y output, mean / min / max | 1.725 / 0.562 / 3.226 V | measured |
-| ADC rate, list comprehension benchmark | 58664 pairs/s | measured |
-| ADC rate, streaming firmware in practice | 42018 pairs/s | measured |
-| USB streaming throughput | 168.2 kB/s, 20.5 frames/s | measured |
 
 Voltages were measured by the Pico reading its own outputs through GP26 and GP27.
+The means are the reliable numbers: repeat runs give the same means within 2 mV,
+while the minimum and maximum are single samples and move by tens of millivolts
+depending on which instants are caught.
 
-The ADC rate row comes from `selftest_adc.py`, which times ten list
-comprehensions of 3000 pairs with `time.monotonic_ns()` while the drawing plays,
-and is the mean of four runs that spread 0.04 %. Ten repeats are used instead of
-one long comprehension because a single list of 20000 pairs runs the board out of
-memory. The mean and the extremes above it behave differently on a repeat: repeat runs
-give the same means within 2 mV, while the minimum and maximum are single samples
-out of 3000 taken from a 231 point path and move by tens of millivolts depending
-on which instants are caught.
-
-The two streaming rows are one measurement written three ways. `livescope_fw.py`
-sends a 4 byte marker followed by 2048 pairs of two `uint16` values, so a frame
-is (4 + 8192) = 8196 bytes on the wire. Counting frames arriving over a 20 second
-window gives the frame rate, and the other two rows follow from it as
-(frames * 2048) pairs/s and (frames * 8196) bytes/s. Three windows agreed to
-0.04 %.
-
-The voltage and rate rows were taken from the arc built 231 point path at 32 kHz,
-which redraws at (32000 / 231) = 138.5 Hz. That path is still what
-`livescope_fw.py` and `selftest_adc.py` run.
+The voltage rows were taken from the arc built 231 point path at 32 kHz, which
+redraws at (32000 / 231) = 138.5 Hz. That path is still what `livescope_fw.py`
+and `selftest_adc.py` run.
 
 `REPORT.md` section 6 covers the 512 kHz outline mode, where the readback sits
 15.0 mV from the intended path, the same order as the 16.1 mV predicted from the
@@ -112,14 +96,13 @@ Firmware, one at a time as `code.py` on the Pico:
 | --- | --- | --- | --- |
 | `cat_outline.py` | 512000 | 7200 | Cat traced as a closed outline from a point table. |
 | `cat_outline_livescope_fw.py` | 512000 | 7200 | `cat_outline.py` that also streams. |
-| `w2aew_outline.py` | 512000 | 7200 | The word W2AEW in Arial Bold, from a point table built by `textgen.py`. |
+| `w2aew_outline.py` | 512000 | 7200 | The word W2AEW as a closed outline from a point table. |
 | `w2aew_outline_livescope_fw.py` | 512000 | 7200 | `w2aew_outline.py` that also streams. |
 | `livescope_fw.py` | 32000 | 231 | The arc built cat, streaming. Not resampled, so the count is whatever the arcs produce. |
-| `selftest_adc.py` | 32000 | 231 | Same arc built cat, then benchmarks the ADC read rate. |
+| `selftest_adc.py` | 32000 | 231 | Same arc built cat, with a check of how fast the ADC can be read. |
 | `cat_xy_pwm_legacy.py` | n/a | 231 | The first version, a `pwmio` loop with no DMA. Kept because the 20 to 40 Hz it manages is what motivated the DMA route. |
 
-The files that stream sample GP26 and GP27 and push 2048 pair bursts over USB CDC
-behind the marker `\xab\xcd\xef\x01`.
+The streaming firmware sends its ADC measurements to the computer over USB.
 
 Host tools, run on the Mac:
 
@@ -127,7 +110,7 @@ Host tools, run on the Mac:
 | --- | --- |
 | `livescope.py` | Live viewer for the USB stream. `--headless` saves `live_capture.npy` instead of opening a window. |
 | `outline_compare.py` | Measures a capture against the path the firmware meant to draw and writes the two panel figure: `python3 outline_compare.py w2aew_outline.py w2aew_capture.npy`. |
-  | `scope_sim.py` | Simulates the RC filter to preview a path before flashing it. Takes a firmware file as an argument, defaulting to `cat_outline.py`. |
+| `scope_sim.py` | Simulates the RC filter to preview a path before flashing it. Takes a firmware file as an argument, defaulting to `cat_outline.py`. |
 
 `schematic.kicad_sch` is the KiCad source for the figure above. Only the
 schematic is kept, since the circuit is built on a breadboard and there is no
@@ -157,29 +140,26 @@ python3 livescope.py
 
 An oscilloscope in XY mode positions a single dot from two voltages. There is no
 frame buffer, so a picture must be a single ordered list of points that the dot
-visits in sequence. The dot cannot be blanked without a Z axis input, so moves
-between disconnected shapes are drawn as visible lines. Paths are therefore built
-as one closed circuit, and detours such as the whiskers are retraced along the
-same line so the return stroke overlaps the outgoing one.
+visits in sequence. The dot cannot be switched off without a Z axis input, so
+moves between disconnected shapes are drawn as visible lines. Paths are therefore
+built as one closed circuit, and detours such as the whiskers are retraced along
+the same line so the return stroke overlaps the outgoing one.
 
-Letters are the harder case, and `textgen.py` handles them. It draws the word
-with negative tracking so neighbouring glyphs overlap and fuse into one shape,
-traces that shape with `potrace`, and gets two closed contours back for W2AEW:
-455 points for the word and 25 for the hole in the A. Two separate contours
-cannot be drawn without a line between them, so the tool strings them into one
-loop by dropping to a shared baseline between shapes. That travel line sits on
-the bottom edge of the letters and stays invisible; only the climb into the A
+For the second test, a closed path with a different shape was created from the
+word W2AEW. It runs along a shared baseline between the letters, so the travel
+line sits on the bottom edge and stays invisible; only the climb into the A
 shows, as the short vertical line under it.
 
-`audiopwmio.PWMAudioOut` is used as a DMA engine rather than for audio. Left
+CircuitPython's audio output is used to send the X and Y values continuously
+using DMA. It is chosen because it is DMA driven rather than for sound: left
 channel is X, right channel is Y, and `RawSample` holds the interleaved uint16
 duty values. CircuitPython exposes no direct DMA API; this is the available route
 to it.
 
 `cat_outline.py` resamples its path to evenly spaced points with
-`even_spaced_path()` before playing it. The beam spends the same time on every
-point, so equal spacing keeps a long stroke from appearing dimmer than a short
-one.
+`even_spaced_path()` before playing it. The drawing point spends the same time on
+every point, so equal spacing keeps a long stroke from appearing dimmer than a
+short one.
 
 The older arc built cat in `livescope_fw.py`, `selftest_adc.py` and
 `cat_xy_pwm_legacy.py` does not do this. Its 231 points come straight from the
@@ -191,19 +171,14 @@ measurements and the DMA comparison, not because they draw well.
 
 - Point budget is set by the flicker threshold, not by memory. At 32 kHz, 640
   points is the maximum that stays above 50 Hz.
-- Raising the point budget means raising the sample rate, and there are two ways
-  to do it. Keep every point settled and shrink the capacitor: 2.2 nF cuts tau
-  to 4.84 us, so the same 3.02 tau per point allows (32000 * (4.7 / 2.2)) =
-  68.4 kHz and a budget of (68364 / 50) = 1367 points. Or accept that points no
-  longer settle individually, which is what the 512 kHz mode does.
+- Raising the point budget means raising the sample rate, which is what the
+  512 kHz mode does.
 - At 512 kHz each point lasts 0.19 tau and the filter settles only 17.2 % of the
   way to it. That mode works because 7200 points sit close together along the
   path, so the filter averages neighbours instead of chasing a step. The cost is
   the rounding measured in `REPORT.md` section 6.
 - Resampling equalises brightness within one path but not between drawings, since
   each has its own ratio of path length to point count.
-- `even_spaced_path()` is copied into every firmware that resamples, because each
-  one has to run standalone as `code.py` with no shared module to import.
 
 ## Checking the output
 
@@ -229,12 +204,10 @@ circuit:
 | Distance from the intended path | W2AEW | Cat outline |
 | --- | --- | --- |
 | mean | 14.3 mV | 14.3 mV |
-| median | 11.2 mV | 12.6 mV |
-| worst | 57.6 mV | 55.9 mV |
 
-Both rows were measured the same way, with `outline_compare.py` over one lap of
-a fresh capture, and both drawings run at 512 kHz with 7200 points. Their
-perimeters are close enough that the beam moves almost the same distance per
-point, 0.2315 units for the word against 0.2343 for the cat, so the two means
-landing on the same 14.3 mV says the error belongs to the circuit and the
-readback rather than to the picture being drawn.
+Both drawings were measured the same way, with `outline_compare.py` over one lap
+of a fresh capture, and both run at 512 kHz with 7200 points. Their
+perimeters are close enough that the drawing point moves almost the same distance
+per point, 0.2315 units for the word against 0.2343 for the cat. The two means
+landing on the same 14.3 mV suggests that the measured error mainly comes from
+the signal path rather than from the particular drawing.
