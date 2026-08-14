@@ -43,8 +43,8 @@ schematic:
 
 <img src="schematic.png" alt="Two channel RC filter schematic" width="340">
 
-Scope settings: XY mode, both channels DC coupled, 1 Mohm input impedance,
-roughly 500 mV/div to 1 V/div. The ADC taps are optional. They are only needed by
+Scope settings: XY mode, 1 Mohm input impedance, roughly 500 mV/div to
+1 V/div. The ADC taps are optional. They are only needed by
 the files marked "streams" in the table below.
 
 The time base matters as much as the vertical scale, because the instrument has
