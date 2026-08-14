@@ -74,7 +74,7 @@ board is doing the same thing in both photographs.
 | Y output, mean / min / max | 1.725 / 0.562 / 3.226 V | measured |
 | ADC rate, list comprehension benchmark | 58664 pairs/s | measured |
 | ADC rate, streaming firmware in practice | 42018 pairs/s | measured |
-| USB streaming throughput | about 164 kB/s, 20.5 frames/s | measured |
+| USB streaming throughput | 168.2 kB/s, 20.5 frames/s | measured |
 
 Voltages were measured by the Pico reading its own outputs through GP26 and GP27.
 
@@ -112,6 +112,8 @@ Firmware, one at a time as `code.py` on the Pico:
 | --- | --- | --- | --- |
 | `cat_outline.py` | 512000 | 7200 | Cat traced as a closed outline from a point table. |
 | `cat_outline_livescope_fw.py` | 512000 | 7200 | `cat_outline.py` that also streams. |
+| `w2aew_outline.py` | 512000 | 7200 | The word W2AEW in Arial Bold, from a point table built by `textgen.py`. |
+| `w2aew_outline_livescope_fw.py` | 512000 | 7200 | `w2aew_outline.py` that also streams. |
 | `livescope_fw.py` | 32000 | 231 | The arc built cat, streaming. Not resampled, so the count is whatever the arcs produce. |
 | `selftest_adc.py` | 32000 | 231 | Same arc built cat, then benchmarks the ADC read rate. |
 | `cat_xy_pwm_legacy.py` | n/a | 231 | The first version, a `pwmio` loop with no DMA. Kept because the 20 to 40 Hz it manages is what motivated the DMA route. |
@@ -124,7 +126,9 @@ Host tools, run on the Mac:
 | File | Purpose |
 | --- | --- |
 | `livescope.py` | Live viewer for the USB stream. `--headless` saves `live_capture.npy` instead of opening a window. |
-| `scope_sim.py` | Simulates the RC filter to preview a path before flashing it. Takes the firmware file as an argument and reads its sample rate from it, so it works for any of the DMA rows above; defaults to `cat_outline.py`. Not `cat_xy_pwm_legacy.py`, which has no DMA buffer and no sample rate to read. |
+| `outline_compare.py` | Measures a capture against the path the firmware meant to draw and writes the two panel figure: `python3 outline_compare.py w2aew_outline.py w2aew_capture.npy`. |
+| `textgen.py` | Turns a word into the point table a firmware file needs: `python3 textgen.py W2AEW`. Needs Pillow and `potrace`. |
+| `scope_sim.py` | Simulates the RC filter to preview a path before flashing it. Takes a firmware file as an argument, defaulting to `cat_outline.py`. |
 
 `schematic.kicad_sch` is the KiCad source for the figure above. Only the
 schematic is kept, since the circuit is built on a breadboard and there is no
@@ -140,7 +144,7 @@ cp cat_outline.py /Volumes/CIRCUITPY/code.py
 
 The board starts drawing as soon as it restarts, and keeps drawing without a
 computer attached. USB is only needed for power, or to receive the stream from
-one of the two `_livescope_fw.py` files.
+one of the three `_livescope_fw.py` files.
 
 The host tools need numpy and matplotlib.
 
@@ -158,6 +162,15 @@ visits in sequence. The dot cannot be blanked without a Z axis input, so moves
 between disconnected shapes are drawn as visible lines. Paths are therefore built
 as one closed circuit, and detours such as the whiskers are retraced along the
 same line so the return stroke overlaps the outgoing one.
+
+Letters are the harder case, and `textgen.py` handles them. It draws the word
+with negative tracking so neighbouring glyphs overlap and fuse into one shape,
+traces that shape with `potrace`, and gets two closed contours back for W2AEW:
+455 points for the word and 25 for the hole in the A. Two separate contours
+cannot be drawn without a line between them, so the tool strings them into one
+loop by dropping to a shared baseline between shapes. That travel line sits on
+the bottom edge of the letters and stays invisible; only the climb into the A
+shows, as the short vertical line under it.
 
 `audiopwmio.PWMAudioOut` is used as a DMA engine rather than for audio. Left
 channel is X, right channel is Y, and `RawSample` holds the interleaved uint16
@@ -180,8 +193,9 @@ measurements and the DMA comparison, not because they draw well.
 - Point budget is set by the flicker threshold, not by memory. At 32 kHz, 640
   points is the maximum that stays above 50 Hz.
 - Raising the point budget means raising the sample rate, and there are two ways
-  to do it. Keep every point settled and shrink the capacitor: at 2.2 nF the
-  filter allows 64 kHz, doubling the budget to 1280. Or accept that points no
+  to do it. Keep every point settled and shrink the capacitor: 2.2 nF cuts tau
+  to 4.84 us, so the same 3.02 tau per point allows (32000 * (4.7 / 2.2)) =
+  68.4 kHz and a budget of (68364 / 50) = 1367 points. Or accept that points no
   longer settle individually, which is what the 512 kHz mode does.
 - At 512 kHz each point lasts 0.19 tau and the filter settles only 17.2 % of the
   way to it. That mode works because 7200 points sit close together along the
@@ -198,11 +212,30 @@ A capture can be compared against the path the firmware meant to draw. In the
 figure below, left is what was sent to GP2 and GP3 and right is what came back
 through GP26 and GP27. The photograph beside it is the oscilloscope output:
 
-<img src="outline_compare.png" alt="Intended path beside the readback" width="460"> <img src="scope_output.jpg" alt="Oscilloscope output" width="330">
+<img src="outline_compare.png" alt="Intended path beside the readback" width="460"> <img src="cat_outline_scope.jpg" alt="cat_outline.py on the instrument" width="330">
 
-The photograph is the arc built cat at 32 kHz, not the 7200 point outline in the
-two plots. It shows what the screen looks like, not the same path.
+All three are the same firmware, `cat_outline.py`: 7200 points at 512 kHz. The
+photograph was taken at 500 mV/div on both channels, in XY mode with dot
+display.
 
 The steps on the plot are the ADC, not the circuit: it keeps about one point in
 (7200 / 630) = 11.4 and the viewer joins those with straight lines. The blunted
 ear tips are the RC filter. `REPORT.md` section 6 works through both.
+
+The same check on `w2aew_outline.py`, a different drawing through the same
+circuit:
+
+<img src="w2aew_outline_compare.png" alt="W2AEW as sent and as read back" width="460"> <img src="w2aew_scope.jpg" alt="w2aew_outline.py on the instrument" width="330">
+
+| Distance from the intended path | W2AEW | Cat outline |
+| --- | --- | --- |
+| mean | 14.3 mV | 14.3 mV |
+| median | 11.2 mV | 12.6 mV |
+| worst | 57.6 mV | 55.9 mV |
+
+Both rows were measured the same way, with `outline_compare.py` over one lap of
+a fresh capture, and both drawings run at 512 kHz with 7200 points. Their
+perimeters are close enough that the beam moves almost the same distance per
+point, 0.2315 units for the word against 0.2343 for the cat, so the two means
+landing on the same 14.3 mV says the error belongs to the circuit and the
+readback rather than to the picture being drawn.

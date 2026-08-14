@@ -92,7 +92,8 @@ def even_spaced_path(count):
 
     # The beam spends the same time on every point, so points spaced evenly
     # along the line make every stroke equally bright. Corner points alone
-    # would leave long strokes 28x dimmer than short ones.
+    # would leave long strokes 8.7x dimmer than typical ones: the longest run
+    # in the table below is 31.4 units against a median of 3.61.
     path = []
     segment = 0
     for step in range(count):

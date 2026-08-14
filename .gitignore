@@ -3,6 +3,7 @@
 *.png
 !schematic.png
 !outline_compare.png
+!w2aew_outline_compare.png
 
 *.npy
 __pycache__/
