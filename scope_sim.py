@@ -59,7 +59,7 @@ def render(points, out_file):
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-source = (sys.argv[1] if (len(sys.argv) > 1) else os.path.join(HERE, "cat_outline.py"))
+source = (sys.argv[1] if (len(sys.argv) > 1) else os.path.join(HERE, "cat_outline_livescope_fw.py"))
 stem = os.path.splitext(os.path.basename(source))[0]
 path, sample_rate = load_frame(source)
 filtered = rc_filter(path, sample_rate)

@@ -9,11 +9,11 @@ import livescope
 
 CAPTURE = (sys.argv[2] if (len(sys.argv) > 2) else "live_capture.npy")
 # Which firmware drew the capture. Any file with an X_POINTS/Y_POINTS table.
-FIRMWARE = (sys.argv[1] if (len(sys.argv) > 1) else "cat_outline.py")
+FIRMWARE = (sys.argv[1] if (len(sys.argv) > 1) else "cat_outline_livescope_fw.py")
 
 
 def firmware_shape():
-    # cat_outline.py imports board and audiocore, so it cannot be imported on
+    # The firmware imports board and audiocore, so it cannot be imported on
     # the Mac. Parse the file instead and read only the two literal tuples,
     # which keeps the point list in exactly one place.
     tree = ast.parse(open(FIRMWARE).read())

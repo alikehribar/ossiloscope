@@ -228,7 +228,8 @@ programmed it keeps drawing without a computer attached.
 Everything left of the DMA stage happens once, at startup. The drawing is built
 in floating point with coordinates running from -1 to 1 on both axes, then
 converted into the integer range the PWM hardware wants. The conversion in
-`livescope_fw.py` is
+the arc built firmware `livescope_fw.py`, which is no longer kept in the
+repository, was
 
     duty = int((((v + 1.0) * 0.5) * 65535))
 
@@ -377,7 +378,7 @@ run, while the means return within 2 mV on a repeat.
 
 ### 6.1 What the second drawing asks of the filter
 
-The cat outline in `cat_outline.py` is a closed path of 368 corners. Corner
+The cat outline in `cat_outline_livescope_fw.py` is a closed path of 368 corners. Corner
 points alone would not do, because the dot spends the same time on every point
 it is given, so a long stroke drawn from two corners gets the same drawing time
 as a short one and comes out dimmer. `even_spaced_path` therefore measures the
@@ -419,7 +420,7 @@ data, and passes it through a 7 sample median filter before display, so the trac
 plotted here is exactly what the live viewer shows. One lap turned out to be 630
 ADC sample pairs, which at 71.1 laps per second is 44800 pairs per second.
 
-<img src="outline_compare.png" alt="Intended path beside the readback" width="460"> <img src="cat_outline_scope.jpg" alt="cat_outline.py on the instrument" width="330">
+<img src="outline_compare.png" alt="Intended path beside the readback" width="460"> <img src="cat_outline_scope.jpg" alt="cat_outline_livescope_fw.py on the instrument" width="330">
 
 **Figure 4.** The 7200 point outline as it was sent to GP2 and GP3, the same
 outline read back through GP26 and GP27, and the instrument showing it in XY
@@ -560,7 +561,7 @@ Section 6.2 measured one drawing. A single measurement cannot separate what the
 circuit does from what that particular cat happens to ask of it, so the same
 firmware structure was given a second picture. For this second test a closed path
 with a completely different shape was built from the word W2AEW, in
-`w2aew_outline.py`. It has 486 corners against the cat's 368, a perimeter of
+`w2aew_outline_livescope_fw.py`. It has 486 corners against the cat's 368, a perimeter of
 1666.8 units against 1687.2, and a completely different distribution of
 directions: the word is almost all vertical and horizontal runs, while the cat is
 almost all curves.
@@ -578,7 +579,7 @@ against the 16.1 mV predicted for the cat. If the numbers of section 6.2 describ
 the circuit, the word should measure the same. If they describe the cat, it
 should not.
 
-<img src="w2aew_outline_compare.png" alt="W2AEW as sent and as read back" width="460"> <img src="w2aew_scope.jpg" alt="w2aew_outline.py on the instrument" width="330">
+<img src="w2aew_outline_compare.png" alt="W2AEW as sent and as read back" width="460"> <img src="w2aew_scope.jpg" alt="w2aew_outline_livescope_fw.py on the instrument" width="330">
 
 **Figure 5.** The word as it was sent to GP2 and GP3, the same word read back
 through GP26 and GP27, and the instrument showing it at 500 mV/div on both
