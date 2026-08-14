@@ -15,33 +15,21 @@ def polar(angle_deg, radius):
     a = math.radians(angle_deg)
     return ((radius * math.cos(a)), (radius * math.sin(a)))
 
+
 def arc(a0, a1, radius, steps):
-    points = []
-    for i in range(steps + 1):
-        points.append(polar((a0 + (((a1 - a0) * i) / steps)), radius))
-    return points
+    return [polar((a0 + (((a1 - a0) * i) / steps)), radius) for i in range(steps + 1)]
 
 
 def line(p0, p1, steps):
-    points = []
-    for i in range(steps + 1):
-        t = (i / steps)
-        points.append((
-            (p0[0] + ((p1[0] - p0[0]) * t)),
-            (p0[1] + ((p1[1] - p0[1]) * t)),
-        ))
-    return points
+    return [(
+        (p0[0] + ((p1[0] - p0[0]) * (i / steps))),
+        (p0[1] + ((p1[1] - p0[1]) * (i / steps))),
+    ) for i in range(steps + 1)]
 
 
 def circle(cx, cy, radius, steps):
-    points = []
-    for i in range(steps + 1):
-        a = ((2.0 * math.pi) * (i / steps))
-        points.append((
-            (cx + (radius * math.cos(a))),
-            (cy + (radius * math.sin(a))),
-        ))
-    return points
+    # A full circle is an arc from 0 to 360 degrees, moved out to (cx, cy).
+    return [((cx + x), (cy + y)) for (x, y) in arc(0, 360, radius, steps)]
 
 
 EAR_TIP_R = (0.72, 0.95)

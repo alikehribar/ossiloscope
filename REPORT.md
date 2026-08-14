@@ -222,7 +222,7 @@ programmed it keeps drawing without a computer attached.
 Everything left of the DMA stage happens once, at startup. The drawing is built
 in floating point with coordinates running from -1 to 1 on both axes, then
 converted into the integer range the PWM hardware wants. The conversion in
-`cat_xy.py` is
+`livescope_fw.py` is
 
     duty = int((((v + 1.0) * 0.5) * 65535))
 
@@ -270,9 +270,9 @@ drawing while the drawing continues.
 
 ## 5. Results
 
-<img src="scope_output.jpg" alt="cat_xy.py drawn on the instrument" width="340">
+<img src="scope_output.jpg" alt="The arc built cat drawn on the instrument" width="340">
 
-**Figure 2.** Output of `cat_xy.py` on an Owon SmartDS5032E in XY mode. Both
+**Figure 2.** Output of the arc built cat on an Owon SmartDS5032E in XY mode. Both
 channels at 1 V per division, the instrument acquiring at 125 kS/s with its time
 base at 4.0 ms per division.
 
@@ -301,10 +301,12 @@ directly.
 
 Table 1 does not describe the run photographed in Figure 2. Measuring requires
 the ADC branch, so the numbers come from `livescope_fw.py`, which draws the same
-cat built from arcs but leaves the path at its natural 231 points instead of
-resampling. `cat_xy.py`, the file in Figure 2, resamples that outline to 400
-points and therefore redraws at (32000 / 400) = 80 Hz rather than 138.5 Hz. The
-circuit, the sample rate and the voltages are the same either way.
+cat built from arcs and leaves the path at its natural 231 points, redrawing at
+138.5 Hz. The run in Figure 2 was an earlier variant that resampled that same
+outline to 400 evenly spaced points and therefore redrew at (32000 / 400) =
+80 Hz; that variant is no longer kept in the repository, since the geometry it
+drew is the geometry `livescope_fw.py` already carries. The circuit, the sample
+rate and the voltages are the same either way.
 
 **Table 1.** Measured, derived and configured values for `livescope_fw.py`.
 

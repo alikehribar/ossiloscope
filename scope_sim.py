@@ -1,30 +1,34 @@
 import math
 import os
 import re
+import sys
 import numpy as np
 from PIL import Image
 
 R_OHM = 2200.0
 C_FARAD = 4.7e-9
-SAMPLE_RATE = 32000.0
 OVERSAMPLE = 24
 SIZE = 700
-GAIN = 0.45
+VOLT_FULL = 3.3
 
 
-def load_path(source_file):
+def load_frame(source_file):
+    # Run the firmware up to the point where it hands the buffer to the DMA.
+    # Reading `frame` rather than `path` means the two firmware files arrive
+    # here in the same unit: 0-65535 duty, which is 0-3.3 V on the pin.
+    # Their `path` variables do not agree (-1..1 in one, 0..255 in the other).
     src = open(source_file).read()
-    src = re.sub(r"^import (board|audiocore|audiopwmio|array)\n", "", src, flags=re.M)
-    src = re.sub(r"^a$", "", src, flags=re.M)
-    src = src.split("frame = array")[0]
+    src = re.sub(r"^import (board|audiocore|audiopwmio|analogio|usb_cdc)\n", "", src, flags=re.M)
+    src = src.split("sample = audiocore")[0]
     namespace = {}
     exec(src, namespace)
-    return namespace["path"]
+    pairs = np.frombuffer(namespace["frame"], dtype="<u2").reshape(-1, 2)
+    return ((pairs / 65535.0) * 3.3), namespace["SAMPLE_RATE"]
 
 
-def rc_filter(path):
+def rc_filter(path, sample_rate):
     tau = (R_OHM * C_FARAD)
-    dt = (1.0 / (SAMPLE_RATE * OVERSAMPLE))
+    dt = (1.0 / (sample_rate * OVERSAMPLE))
     alpha = (1.0 - math.exp((-dt / tau)))
     held = np.repeat(np.array(path, dtype=float), OVERSAMPLE, axis=0)
     out = np.empty_like(held)
@@ -37,8 +41,10 @@ def rc_filter(path):
 
 def render(points, out_file):
     canvas = np.zeros((SIZE, SIZE), dtype=float)
-    px = (((points[:, 0] * GAIN) + 0.5) * (SIZE - 1))
-    py = (((-points[:, 1] * GAIN) + 0.5) * (SIZE - 1))
+    # The full 0-3.3 V rail maps to the canvas, so a drawing that uses only
+    # part of the rail looks small here, exactly as it does on the screen.
+    px = ((points[:, 0] / VOLT_FULL) * (SIZE - 1))
+    py = ((1.0 - (points[:, 1] / VOLT_FULL)) * (SIZE - 1))
     ix = np.clip(px.astype(int), 0, (SIZE - 1))
     iy = np.clip(py.astype(int), 0, (SIZE - 1))
     np.add.at(canvas, (iy, ix), 1.0)
@@ -53,11 +59,20 @@ def render(points, out_file):
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-path = load_path(os.path.join(HERE, "cat_xy.py"))
-filtered = rc_filter(path)
-render(filtered, "sim_filtered.png")
-arr = np.array(path, dtype=float)
-seg = [np.linspace(arr[i], arr[(i + 1) % len(arr)], OVERSAMPLE, endpoint=False) for i in range(len(arr))]
-render(np.concatenate(seg), "sim_ideal.png")
-print("points:", len(path), "| simulated samples:", len(filtered))
-print("frame rate:", round((SAMPLE_RATE / len(path)), 1), "Hz")
+source = (sys.argv[1] if (len(sys.argv) > 1) else os.path.join(HERE, "cat_outline.py"))
+stem = os.path.splitext(os.path.basename(source))[0]
+path, sample_rate = load_frame(source)
+filtered = rc_filter(path, sample_rate)
+render(filtered, ("sim_%s_filtered.png" % stem))
+seg = [np.linspace(path[i], path[((i + 1) % len(path))], OVERSAMPLE, endpoint=False) for i in range(len(path))]
+render(np.concatenate(seg), ("sim_%s_ideal.png" % stem))
+
+tau = (R_OHM * C_FARAD)
+dwell = (1.0 / sample_rate)
+print("%s | points: %d | sample rate: %d Hz" % (stem, len(path), sample_rate))
+print("frame rate: %.1f Hz" % (sample_rate / len(path)))
+# Reported the way REPORT.md sections 4 and 6 do it: the dwell measured in time
+# constants, and how far through the step the filter gets in that time.
+print("RC time constant: %.2f us" % (tau * 1e6))
+print("time per point: %.3f us = %.3f tau | settles to %.1f %%" % (
+    (dwell * 1e6), (dwell / tau), (100.0 * (1.0 - math.exp((-dwell / tau))))))

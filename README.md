@@ -50,10 +50,10 @@ the files marked "streams" in the table below.
 The time base matters as much as the vertical scale, because the instrument has
 to acquire fast enough to resolve consecutive points.
 
-<img src="scope_output.jpg" alt="cat_xy.py drawn on the instrument" width="340">
+<img src="scope_output.jpg" alt="The arc built cat drawn on the instrument" width="340">
 
-`cat_xy.py` at 4.0 ms/div, where the instrument acquires at 125 kS/s and the
-outline is continuous.
+The arc built cat at 4.0 ms/div, where the instrument acquires at 125 kS/s and
+the outline is continuous.
 
 <img src="scope_undersampled.jpg" alt="The same board acquired at 125 S/s" width="340">
 
@@ -96,8 +96,7 @@ window gives the frame rate, and the other two rows follow from it as
 
 The voltage and rate rows were taken from the arc built 231 point path at 32 kHz,
 which redraws at (32000 / 231) = 138.5 Hz. That path is still what
-`livescope_fw.py` and `selftest_adc.py` run. `cat_xy.py` is a different drawing
-and resamples to 400 points, giving (32000 / 400) = 80 Hz.
+`livescope_fw.py` and `selftest_adc.py` run.
 
 `REPORT.md` section 6 covers the 512 kHz outline mode, where the readback sits
 15.0 mV from the intended path, the same order as the 16.1 mV predicted from the
@@ -111,7 +110,6 @@ Firmware, one at a time as `code.py` on the Pico:
 
 | File | Sample rate | Points | Purpose |
 | --- | --- | --- | --- |
-| `cat_xy.py` | 32000 | 400 | Cat drawn from arcs and lines built in code. |
 | `cat_outline.py` | 512000 | 7200 | Cat traced as a closed outline from a point table. |
 | `cat_outline_livescope_fw.py` | 512000 | 7200 | `cat_outline.py` that also streams. |
 | `livescope_fw.py` | 32000 | 231 | The arc built cat, streaming. Not resampled, so the count is whatever the arcs produce. |
@@ -126,7 +124,7 @@ Host tools, run on the Mac:
 | File | Purpose |
 | --- | --- |
 | `livescope.py` | Live viewer for the USB stream. `--headless` saves `live_capture.npy` instead of opening a window. |
-| `scope_sim.py` | Simulates the RC filter to preview a path before flashing it. |
+| `scope_sim.py` | Simulates the RC filter to preview a path before flashing it. Takes the firmware file as an argument and reads its sample rate from it, so it works for any of the DMA rows above; defaults to `cat_outline.py`. Not `cat_xy_pwm_legacy.py`, which has no DMA buffer and no sample rate to read. |
 
 `schematic.kicad_sch` is the KiCad source for the figure above. Only the
 schematic is kept, since the circuit is built on a breadboard and there is no
@@ -137,7 +135,7 @@ board layout.
 Copy any firmware file to the board as `code.py`:
 
 ```
-cp cat_xy.py /Volumes/CIRCUITPY/code.py
+cp cat_outline.py /Volumes/CIRCUITPY/code.py
 ```
 
 The board starts drawing as soon as it restarts, and keeps drawing without a
@@ -166,16 +164,16 @@ channel is X, right channel is Y, and `RawSample` holds the interleaved uint16
 duty values. CircuitPython exposes no direct DMA API; this is the available route
 to it.
 
-Most paths are resampled to evenly spaced points by `even_spaced_path()` before
-they are played. The beam spends the same time on every point, so equal spacing
-keeps a long stroke from appearing dimmer than a short one.
+`cat_outline.py` resamples its path to evenly spaced points with
+`even_spaced_path()` before playing it. The beam spends the same time on every
+point, so equal spacing keeps a long stroke from appearing dimmer than a short
+one.
 
 The older arc built cat in `livescope_fw.py`, `selftest_adc.py` and
 `cat_xy_pwm_legacy.py` does not do this. Its 231 points come straight from the
 arc and line builders, and their spacing is uneven: the longest gap is 3.8 times
 the median and a few points are exact duplicates. Those files are kept for the
-measurements and the DMA comparison, not because they draw well. `cat_xy.py` is
-the same cat with the resampler applied.
+measurements and the DMA comparison, not because they draw well.
 
 ## Limits
 
@@ -202,8 +200,8 @@ through GP26 and GP27. The photograph beside it is the oscilloscope output:
 
 <img src="outline_compare.png" alt="Intended path beside the readback" width="460"> <img src="scope_output.jpg" alt="Oscilloscope output" width="330">
 
-The photograph is `cat_xy.py` at 32 kHz with 400 points, not the 7200 point
-outline in the two plots. It shows what the screen looks like, not the same path.
+The photograph is the arc built cat at 32 kHz, not the 7200 point outline in the
+two plots. It shows what the screen looks like, not the same path.
 
 The steps on the plot are the ADC, not the circuit: it keeps about one point in
 (7200 / 630) = 11.4 and the viewer joins those with straight lines. The blunted
