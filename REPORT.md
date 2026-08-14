@@ -259,7 +259,7 @@ audio.play(sample, loop=True)
 
 The left channel carries X and the right channel carries Y. `RawSample` wraps the
 interleaved buffer from section 4.1, and `sample_rate` sets how many points per
-second the beam visits. `loop=True` replays the buffer forever without further
+second the dot visits. `loop=True` replays the buffer forever without further
 instructions, so once `play()` returns, the drawing continues with no CPU
 involvement.
 
@@ -285,7 +285,7 @@ base at 4.0 ms per division.
 Figure 2 is what the circuit produces. The path closes on itself, the strokes are
 continuous, and the connecting lines between the head, the eyes and the nose are
 visible as part of the drawing, which is the consequence of having no way to
-blank the beam.
+turn the dot off.
 
 <img src="scope_undersampled.jpg" alt="The same board acquired at 125 S/s" width="340">
 
@@ -660,3 +660,8 @@ blank the beam. And the instrument has to sample fast enough to resolve the
 points it is sent, which is a property of the oscilloscope rather than of the
 circuit; Figure 3 shows the same board producing a cloud of dots when that
 condition is dropped.
+
+I started this project to learn how to use an oscilloscope, how PWM works, how to
+build and understand an RC circuit, and how to draw vector images on an
+oscilloscope. By the end of the project, I had learned these topics to a level
+that was sufficient to understand and complete this project successfully.
