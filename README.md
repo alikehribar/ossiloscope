@@ -127,7 +127,6 @@ Host tools, run on the Mac:
 | --- | --- |
 | `livescope.py` | Live viewer for the USB stream. `--headless` saves `live_capture.npy` instead of opening a window. |
 | `outline_compare.py` | Measures a capture against the path the firmware meant to draw and writes the two panel figure: `python3 outline_compare.py w2aew_outline.py w2aew_capture.npy`. |
-| `textgen.py` | Turns a word into the point table a firmware file needs: `python3 textgen.py W2AEW`. Needs Pillow and `potrace`. |
 | `scope_sim.py` | Simulates the RC filter to preview a path before flashing it. Takes a firmware file as an argument, defaulting to `cat_outline.py`. |
 
 `schematic.kicad_sch` is the KiCad source for the figure above. Only the
