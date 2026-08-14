@@ -303,6 +303,12 @@ rather than from a single run along the path. The outline breaks into
 unconnected dots. This is the second condition stated in section 2.1, and it is a
 property of the measurement rather than of the drawing.
 
+Figures 2 and 3 are the 32 kHz arc built cat, the firmware Table 1 describes. The
+same instrument photographs the two 512 kHz drawings in Figures 4 and 5, where
+the point rate is sixteen times higher and the dotted trace of Figure 3 returns
+for the same reason. All four photographs are the same circuit; only the firmware
+and the instrument settings change.
+
 Voltages were measured by the Pico reading its own outputs through GP26 and GP27.
 Values marked derived are computed from the measured ones rather than observed
 directly.
@@ -418,12 +424,16 @@ and passes it through a 7 sample median filter before display, so the trace
 plotted here is exactly what the live viewer shows. One lap turned out to be 630
 ADC sample pairs, which at 71.1 laps per second is 44800 pairs per second.
 
-<img src="outline_compare.png" alt="Intended path beside the readback" width="460">
+<img src="outline_compare.png" alt="Intended path beside the readback" width="460"> <img src="cat_outline_scope.jpg" alt="cat_outline.py on the instrument" width="330">
 
-**Figure 4.** The 7200 point outline as it was sent to GP2 and GP3, beside the
-same outline read back through GP26 and GP27. Both panels are plotted in volts on
-the same axes, so the difference between them is the difference between the two
-signals and not an effect of scaling.
+**Figure 4.** The 7200 point outline as it was sent to GP2 and GP3, the same
+outline read back through GP26 and GP27, and the instrument showing it in XY
+mode. The two plotted panels are in volts on the same axes, so the difference
+between them is the difference between the two signals and not an effect of
+scaling. The photograph is the same firmware seen by the instrument instead of
+by the ADC; its trace is broken into dots for the reason given in Figure 3,
+because 512000 points per second is far above the rate the instrument acquires
+at.
 
 **Table 3.** Predicted and measured values for the outline firmware.
 
@@ -506,10 +516,17 @@ cheeks and around the ears.
 ### 6.3 The oscilloscope and the ADC readback compared
 
 The board's output is looked at twice in this report, by two instruments that tap
-the same node and disagree about what they can see. Figure 2 is the oscilloscope
-screen; the right hand panel of Figure 4 is the ADC readback drawn by
-`livescope.py`. Neither is a check on the other, and it is worth being clear
-about why.
+the same node and disagree about what they can see. Figure 4 now shows both for
+the same firmware: the photograph is the oscilloscope screen, the right hand
+panel is the ADC readback drawn by `livescope.py`. Neither is a check on the
+other, and it is worth being clear about why.
+
+Table 4 quantifies that using the two runs whose instrument settings were
+recorded: the oscilloscope column is the 32 kHz run photographed in Figure 2, and
+the readback column is the 512 kHz run of Figure 4. The two columns therefore
+describe different drawings at different point rates, which is why the sampling
+density row differs so sharply. The comparison is between the two observers, not
+between the two drawings.
 
 **Table 4.** The two ways the output is observed.
 
@@ -675,56 +692,3 @@ blank the beam. And the instrument has to sample fast enough to resolve the
 points it is sent, which is a property of the oscilloscope rather than of the
 circuit; Figure 3 shows the same board producing a cloud of dots when that
 condition is dropped.
-
-### 7.1 What is not measured here
-
-Two numbers introduced in the theory are never given a value in this report.
-
-Section 2.2 describes ripple, the switching the filter fails to remove, and no
-figure for it appears anywhere. The readback path cannot supply one. The ADC
-manages 44800 pairs per second, so it cannot resolve anything above roughly
-22 kHz, while the PWM carrier sits far above that. Any ripple present in the
-capture is aliased down and indistinguishable from noise. Measuring it needs the
-oscilloscope on one node with the time base in microseconds, not the ADC branch.
-
-For the same reason the PWM carrier frequency of the DMA firmware is quoted
-nowhere. It is set inside `audiopwmio` rather than by this code, and it was never
-read off the instrument. The one carrier this project does choose is in
-`cat_xy_pwm_legacy.py`, which asks `pwmio` for 1 MHz, about 65 times the 15.4 kHz
-cutoff; that figure is set, not measured.
-
-### 7.2 What I learned
-
-The three things section 1.1 set out to learn each came with a number attached,
-and the numbers are what turned them from descriptions into working knowledge.
-
-The RC circuit stopped being a formula. R and C set one quantity, the time
-constant (2200 ohm * 4.7 nF) = 10.34 us, and everything the filter does follows
-from comparing that to the time one point is allowed. Three time constants per
-point leaves each coordinate 95.1 % reached; a fifth of a time constant leaves
-17.2 %, and the same components then behave as an averager instead of a follower.
-I could predict the second case before measuring it, and the prediction, 16.1 mV
-of smoothing, landed 1.8 mV from the 14.3 mV measured.
-
-The oscilloscope stopped being a screen that either shows something or does not.
-Volts per division, coupling, XY mode and the time base each had to be set
-deliberately, and the time base turned out to matter as much as the vertical
-scale even though no time axis is drawn in XY mode: at 4.0 ms/div the instrument
-samples at 125 kS/s and the outline is continuous, at 4 s/div it samples at
-125 S/s and the same board produces a cloud of dots. Reading that as an
-instrument setting rather than a fault in the circuit is the single most useful
-habit this project taught.
-
-PWM stopped being a way to dim an LED. A pin that is only ever 0 V or 3.3 V
-carries an average that the filter extracts, so duty cycle becomes voltage, and
-the limits of that trick are visible in the results: the output reaches 0.426 V
-and 2.850 V rather than 0 and 3.3 V, for the reasons section 5.1 works through.
-
-Two things I did not expect to learn came out of the same work. Streaming the
-board's own output back over USB, and comparing it against the point table that
-produced it, is a cheap way to check hardware without a second instrument, and it
-caught more than one wiring and timing mistake. And a measurement is only as
-trustworthy as the state it was taken in: reading the serial port immediately
-after reloading the board mixes the previous firmware's bytes into the capture
-and reports 123.6 mV of error where there is 14.3 mV, which taught me to make the
-measurement path prove itself before believing what it says about the circuit.
